@@ -3,12 +3,15 @@
  * Operates on scene.js arrays — does NOT use Konva's built-in toJSON().
  */
 
-import { serialize, deserialize, getElements } from './scene.js';
+import { serialize, deserialize, getElements, snapshot } from './scene.js';
 import { getStage, getTransformerLayer, getLaserLayer } from './stage.js';
+import { push as historyPush } from './history.js';
 
 /**
  * Download a file in the browser.
- * The anchor must be appended to the DOM for Firefox compatibility.
+ * @param {string} content - text or dataURL content
+ * @param {string} filename
+ * @param {string} type - MIME type or 'dataURL'
  */
 function download(content, filename, type = 'text/plain') {
   const a = document.createElement('a');
@@ -19,21 +22,25 @@ function download(content, filename, type = 'text/plain') {
     a.href = URL.createObjectURL(blob);
   }
   a.download = filename;
+  // Must append to DOM for download to work in all browsers
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  setTimeout(() => {
+  // Cleanup after a tick
+  requestAnimationFrame(() => {
+    document.body.removeChild(a);
     if (a.href.startsWith('blob:')) URL.revokeObjectURL(a.href);
-  }, 1000);
+  });
 }
 
 /**
  * Export the current diagram as a JSON file.
+ * @param {object} appState - viewport info
  */
 export function exportJSON(appState = {}) {
+  const serialized = serialize();
   const data = {
-    ...serialize(),
+    elements: serialized.elements,
     appState: {
       background: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
       ...appState,
@@ -47,7 +54,9 @@ export function exportJSON(appState = {}) {
 }
 
 /**
- * Trigger a file picker, parse JSON, and call the provided callback.
+ * Trigger a file picker, parse JSON, and call the provided callback
+ * with the parsed data so the caller can re-render the scene.
+ * @param {function} onImport - callback(data)
  */
 export function importJSON(onImport) {
   const input = document.createElement('input');
@@ -62,13 +71,25 @@ export function importJSON(onImport) {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
+
+        // Validate the JSON structure
+        if (!data || !Array.isArray(data.elements)) {
+          alert('Invalid file: not a Sketchboard JSON export.');
+          document.body.removeChild(input);
+          return;
+        }
+
+        // Save current state so user can undo the import
+        historyPush(snapshot());
+
+        // Replace elements with imported data
         deserialize(data);
+
         if (onImport) onImport(data);
       } catch (err) {
         alert(`Failed to import: ${err.message}`);
-      } finally {
-        document.body.removeChild(input);
       }
+      document.body.removeChild(input);
     };
     reader.readAsText(file);
   };
@@ -96,49 +117,52 @@ export function exportPNG() {
   trLayer.visible(false);
   laserLayer.visible(false);
 
-  // Hide text editor overlay if open
+  // Also hide text editor overlay if open
   const textOverlay = document.getElementById('text-editor-overlay');
   const textWasVisible = textOverlay && textOverlay.classList.contains('visible');
   if (textWasVisible) textOverlay.classList.remove('visible');
 
-  // Calculate bounding box of all elements in stage space
-  const PADDING = 60;
+  // Calculate bounding box of all elements
+  const PADDING = 40;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
   elements.forEach((el) => {
     if (el.type === 'freedraw' && el.points && el.points.length > 0) {
-      el.points.forEach(([px, py]) => {
-        minX = Math.min(minX, el.x + px);
-        minY = Math.min(minY, el.y + py);
-        maxX = Math.max(maxX, el.x + px);
-        maxY = Math.max(maxY, el.y + py);
-      });
+      const pts = el.points;
+      for (let i = 0; i < pts.length; i++) {
+        const p = Array.isArray(pts[i]) ? pts[i] : null;
+        if (!p) continue;
+        const px = el.x + p[0];
+        const py = el.y + p[1];
+        minX = Math.min(minX, px);
+        minY = Math.min(minY, py);
+        maxX = Math.max(maxX, px);
+        maxY = Math.max(maxY, py);
+      }
     } else {
       minX = Math.min(minX, el.x);
       minY = Math.min(minY, el.y);
-      maxX = Math.max(maxX, el.x + Math.abs(el.width || 0));
-      maxY = Math.max(maxY, el.y + Math.abs(el.height || 0));
+      maxX = Math.max(maxX, el.x + Math.abs(el.width || 100));
+      maxY = Math.max(maxY, el.y + Math.abs(el.height || 30));
     }
   });
 
   const scale = stage.scaleX();
   const stagePos = stage.position();
 
-  // Stage-space bounding box → screen-space crop rectangle
-  const x = (minX - PADDING) * scale + stagePos.x;
-  const y = (minY - PADDING) * scale + stagePos.y;
-  const width  = (maxX - minX + PADDING * 2) * scale;
-  const height = (maxY - minY + PADDING * 2) * scale;
+  // Convert stage-space bounding box to screen-space crop
+  const screenX = minX * scale + stagePos.x - PADDING * scale;
+  const screenY = minY * scale + stagePos.y - PADDING * scale;
+  const screenW = (maxX - minX) * scale + PADDING * 2 * scale;
+  const screenH = (maxY - minY) * scale + PADDING * 2 * scale;
 
-  // Force synchronous draw before snapshot
-  stage.draw();
+  stage.batchDraw();
 
   const dataUrl = stage.toDataURL({
     pixelRatio: 2,
-    x,
-    y,
-    width,
-    height,
+    x: screenX,
+    y: screenY,
+    width: screenW,
+    height: screenH,
     mimeType: 'image/png',
   });
 
@@ -146,7 +170,6 @@ export function exportPNG() {
   trLayer.visible(trWasVisible);
   laserLayer.visible(laserWasVisible);
   if (textWasVisible) textOverlay.classList.add('visible');
-  stage.batchDraw();
 
   download(dataUrl, `sketchboard-${Date.now()}.png`, 'dataURL');
 }

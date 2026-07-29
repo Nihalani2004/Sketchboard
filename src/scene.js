@@ -10,14 +10,31 @@ export function generateId() {
   return `el_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Return a shallow copy of the elements array */
+/**
+ * Deep-clone a single element (handles nested arrays like `points`).
+ */
+function cloneElement(el) {
+  const clone = {};
+  for (const key of Object.keys(el)) {
+    const val = el[key];
+    if (Array.isArray(val)) {
+      // Deep-clone arrays (handles nested arrays like [[x,y,p], ...])
+      clone[key] = JSON.parse(JSON.stringify(val));
+    } else {
+      clone[key] = val;
+    }
+  }
+  return clone;
+}
+
+/** Return a deep copy of the elements array */
 export function getElements() {
-  return [...elements];
+  return elements.map(cloneElement);
 }
 
 /** Add a new element; returns the added element */
 export function addElement(el) {
-  elements.push(el);
+  elements.push(cloneElement(el));
   return el;
 }
 
@@ -26,7 +43,13 @@ export function updateElement(id, patch) {
   const idx = elements.findIndex((e) => e.id === id);
   if (idx === -1) return null;
   elements[idx] = { ...elements[idx], ...patch };
-  return elements[idx];
+  // Deep-clone any array values in the patch
+  for (const key of Object.keys(patch)) {
+    if (Array.isArray(patch[key])) {
+      elements[idx][key] = JSON.parse(JSON.stringify(patch[key]));
+    }
+  }
+  return { ...elements[idx] };
 }
 
 /** Remove an element by id */
@@ -36,12 +59,12 @@ export function removeElement(id) {
 
 /** Replace the entire element array (used by undo/redo and import) */
 export function setElements(newElements) {
-  elements = newElements.map((e) => ({ ...e }));
+  elements = newElements.map(cloneElement);
 }
 
 /** Deep-clone current state (used by history) */
 export function snapshot() {
-  return elements.map((e) => ({ ...e }));
+  return elements.map(cloneElement);
 }
 
 /** Serialize to JSON-compatible object for export */
@@ -64,10 +87,10 @@ export function deserialize(data) {
 export const DEFAULT_STYLE = {
   strokeColor: '#1e1e1e',
   backgroundColor: 'transparent',
-  fillStyle: 'hachure',
+  fillStyle: 'solid',
   strokeWidth: 2,
   strokeStyle: 'solid',
-  roughness: 2.0,
+  roughness: 0,
   opacity: 1,
   groupId: null,
   fontSize: 20,

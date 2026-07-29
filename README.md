@@ -48,12 +48,14 @@ Click anywhere to place a text label. An inline HTML `<textarea>` opens at the e
 
 ### 🖱️ Selection & Editing
 - **Click** any shape to select it (shows resize/rotate handles)
-- **Click again** to toggle-deselect
+- **Click again** to toggle-deselect (clicking a selected shape toggles selection off)
 - **Shift+Click** for multi-select
-- **Drag** selected shapes to move them
+- **Drag** selected shapes to move them anywhere on the canvas
 - **Arrow keys** nudge selected shapes by 1px (**Shift+Arrow** = 10px)
+- **Auto-select after draw** — drawing any shape automatically switches to Select tool and selects the shape for instant styling
+- **Hover cursor** — hover over shapes in Select mode for interactive pointer cursor feedback
 - **Rubber-band** drag on empty canvas to marquee-select multiple shapes
-- **Style panel** updates apply live to selected shapes (change fill color, stroke, etc. after drawing)
+- **Style panel** updates apply live to selected shapes (change fill color, stroke, roughness, etc. after drawing)
 
 ### ⚡ Laser Pointer
 Renders a glowing, fading red trail **only while the left mouse button is held**. Disappears instantly on release. Never appears in exports.
@@ -75,8 +77,8 @@ Full undo/redo via **Ctrl+Z** / **Ctrl+Shift+Z** (or Cmd on Mac). Snapshots are 
 Toggle via the toolbar moon/sun button. Respects `prefers-color-scheme` on first load.
 
 ### 🔭 Pan & Zoom
-- **Scroll wheel** — zoom centred on cursor
-- **Middle-mouse drag** or **Spacebar + drag** — pan
+- **Scroll wheel / Trackpad** — two-finger trackpad pan (without Ctrl) or zoom centred on cursor (with Ctrl)
+- **Middle-mouse drag** or **Spacebar + drag** — pan canvas
 - **Zoom controls** (bottom-right) — zoom in/out, reset, fit-to-content
 - Keyboard shortcut: **F** — fit view to content
 

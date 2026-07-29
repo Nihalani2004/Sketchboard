@@ -39,12 +39,21 @@ Click anywhere to place a text label. An inline HTML `<textarea>` opens at the e
 ### 🎨 Style Panel
 - **Stroke color** — 8 swatches + custom color picker
 - **Fill color** — transparent + 7 swatches + custom
-- **Fill style** — None (hachure) / Cross-hatch / Solid
+- **Fill style** — Solid (default) / Hachure / Cross-hatch
 - **Stroke width** — Small / Medium / Large presets
 - **Stroke style** — Solid / Dashed / Dotted
-- **Roughness** — 0 (clean) → 3 (very sketchy)
+- **Roughness** — Clean / Medium / Rough presets + fine-tune slider (0–4)
 - **Opacity** — 0–100%
 - **Font size** — shown only for text elements
+
+### 🖱️ Selection & Editing
+- **Click** any shape to select it (shows resize/rotate handles)
+- **Click again** to toggle-deselect
+- **Shift+Click** for multi-select
+- **Drag** selected shapes to move them
+- **Arrow keys** nudge selected shapes by 1px (**Shift+Arrow** = 10px)
+- **Rubber-band** drag on empty canvas to marquee-select multiple shapes
+- **Style panel** updates apply live to selected shapes (change fill color, stroke, etc. after drawing)
 
 ### ⚡ Laser Pointer
 Renders a glowing, fading red trail **only while the left mouse button is held**. Disappears instantly on release. Never appears in exports.
@@ -89,6 +98,8 @@ Toggle via the toolbar moon/sun button. Respects `prefers-color-scheme` on first
 | `F` | Fit view |
 | `Escape` | Back to Select |
 | `Delete` / `Backspace` | Delete selected |
+| `↑ ↓ ← →` | Nudge selected shapes 1px |
+| `Shift + ↑ ↓ ← →` | Nudge selected shapes 10px |
 | `Ctrl+Z` | Undo |
 | `Ctrl+Shift+Z` | Redo |
 | `Shift` (while drawing) | Constrain shape |
@@ -130,10 +141,10 @@ sketchboard/
   angle: number,
   strokeColor: string,    // default '#1e1e1e'
   backgroundColor: string,
-  fillStyle: 'hachure' | 'solid' | 'cross-hatch',
+  fillStyle: 'solid' | 'hachure' | 'cross-hatch',
   strokeWidth: number,    // 1 / 2 / 4
   strokeStyle: 'solid' | 'dashed' | 'dotted',
-  roughness: number,      // 0–3, default 1.2
+  roughness: number,      // 0–4, default 0 (clean)
   seed: number,           // keeps re-renders visually stable
   opacity: number,        // 0–1
   groupId: string | null,

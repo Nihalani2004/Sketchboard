@@ -1,0 +1,449 @@
+@import "tailwindcss";
+
+/* ─── CSS custom properties for canvas-side theming ──────────────────────── */
+/* These are read by Konva/rough.js renderers via JS getComputedStyle,        */
+/* so Tailwind utilities can't reach them directly.                            */
+:root {
+  --sb-canvas-bg: #f8f7f2;
+  --sb-stroke-default: #1e1e1e;
+  --sb-accent: #6366f1;
+  --sb-accent-hover: #4f46e5;
+  --sb-panel-bg: rgba(255, 255, 255, 0.92);
+  --sb-panel-border: rgba(0, 0, 0, 0.08);
+  --sb-panel-shadow: 0 4px 24px rgba(0, 0, 0, 0.10);
+  --sb-toolbar-bg: rgba(255, 255, 255, 0.96);
+  --sb-toolbar-border: rgba(0, 0, 0, 0.08);
+  --sb-text-primary: #1e1e1e;
+  --sb-text-muted: #6b7280;
+  --sb-guide-color: #6366f1;
+}
+
+.dark {
+  --sb-canvas-bg: #1a1a2e;
+  --sb-stroke-default: #e8e8e8;
+  --sb-panel-bg: rgba(30, 30, 46, 0.96);
+  --sb-panel-border: rgba(255, 255, 255, 0.08);
+  --sb-panel-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --sb-toolbar-bg: rgba(30, 30, 46, 0.98);
+  --sb-toolbar-border: rgba(255, 255, 255, 0.08);
+  --sb-text-primary: #e8e8e8;
+  --sb-text-muted: #9ca3af;
+}
+
+/* ─── Global resets ──────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--sb-canvas-bg);
+  color: var(--sb-text-primary);
+  transition: background 0.3s, color 0.3s;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ─── Canvas container ───────────────────────────────────────────────────── */
+#canvas-container {
+  position: absolute;
+  inset: 0;
+  cursor: default;
+}
+
+/* ─── Toolbar ────────────────────────────────────────────────────────────── */
+#toolbar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: var(--sb-toolbar-bg);
+  border: 1px solid var(--sb-toolbar-border);
+  border-radius: 14px;
+  box-shadow: var(--sb-panel-shadow);
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.toolbar-btn {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--sb-text-muted);
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.toolbar-btn:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--sb-accent);
+  transform: translateY(-1px);
+}
+
+.toolbar-btn.active {
+  background: var(--sb-accent);
+  color: white;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.toolbar-btn.active:hover {
+  background: var(--sb-accent-hover);
+  transform: translateY(-1px);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--sb-panel-border);
+  margin: 0 4px;
+}
+
+/* Tooltip */
+.toolbar-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 15, 15, 0.85);
+  color: white;
+  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 200;
+}
+.toolbar-btn:hover::after {
+  opacity: 1;
+}
+
+/* ─── Style Panel ────────────────────────────────────────────────────────── */
+#style-panel {
+  position: absolute;
+  top: 80px;
+  left: 16px;
+  z-index: 100;
+  background: var(--sb-panel-bg);
+  border: 1px solid var(--sb-panel-border);
+  border-radius: 14px;
+  box-shadow: var(--sb-panel-shadow);
+  padding: 14px;
+  width: 220px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+#style-panel.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-8px);
+}
+
+.panel-section {
+  margin-bottom: 14px;
+}
+
+.panel-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sb-text-muted);
+  margin-bottom: 7px;
+}
+
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  position: relative;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  border-color: var(--sb-accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
+.color-swatch.transparent-swatch {
+  background: white;
+  border: 2px solid #d1d5db;
+  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%),
+    linear-gradient(-45deg, #ccc 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ccc 75%),
+    linear-gradient(-45deg, transparent 75%, #ccc 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+}
+
+.dark .color-swatch.transparent-swatch {
+  background-color: #374151;
+}
+
+.custom-color-input {
+  width: 100%;
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--sb-panel-border);
+  background: transparent;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.stroke-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  flex: 1;
+  border-radius: 6px;
+  border: 1px solid var(--sb-panel-border);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--sb-text-muted);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.stroke-btn.active {
+  background: var(--sb-accent);
+  color: white;
+  border-color: var(--sb-accent);
+}
+
+.stroke-btn:hover:not(.active) {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--sb-accent);
+  border-color: var(--sb-accent);
+}
+
+.fill-style-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--sb-panel-border);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  gap: 2px;
+  color: var(--sb-text-muted);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.fill-style-btn.active {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--sb-accent);
+  border-color: var(--sb-accent);
+}
+
+.panel-slider {
+  width: 100%;
+  accent-color: var(--sb-accent);
+  cursor: pointer;
+}
+
+.panel-row {
+  display: flex;
+  gap: 5px;
+}
+
+/* ─── Zoom Controls ──────────────────────────────────────────────────────── */
+#zoom-controls {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--sb-panel-bg);
+  border: 1px solid var(--sb-panel-border);
+  border-radius: 10px;
+  padding: 5px 8px;
+  box-shadow: var(--sb-panel-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.zoom-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--sb-text-muted);
+  transition: background 0.12s, color 0.12s;
+}
+
+.zoom-btn:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--sb-accent);
+}
+
+#zoom-level {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sb-text-muted);
+  min-width: 42px;
+  text-align: center;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+#zoom-level:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--sb-accent);
+}
+
+/* ─── Text Overlay ───────────────────────────────────────────────────────── */
+#text-editor-overlay {
+  position: absolute;
+  z-index: 200;
+  display: none;
+  min-width: 10px;
+  min-height: 24px;
+  outline: 2px solid var(--sb-accent);
+  border-radius: 3px;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  font-family: 'Caveat', cursive;
+  font-size: 20px;
+  color: var(--sb-text-primary);
+  padding: 2px 4px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+#text-editor-overlay.visible {
+  display: block;
+}
+
+/* ─── Snapping guides ────────────────────────────────────────────────────── */
+.snap-guide {
+  pointer-events: none;
+}
+
+/* ─── Laser trail ────────────────────────────────────────────────────────── */
+.laser-dot {
+  pointer-events: none;
+}
+
+/* ─── Action buttons (top-right) ─────────────────────────────────────────── */
+#action-bar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid var(--sb-panel-border);
+  background: var(--sb-panel-bg);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sb-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--sb-panel-shadow);
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.action-btn:hover {
+  background: var(--sb-accent);
+  color: white;
+  border-color: var(--sb-accent);
+  transform: translateY(-1px);
+}
+
+.action-btn.danger:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+/* ─── Selection box (rubber-band) ────────────────────────────────────────── */
+#selection-rect {
+  position: absolute;
+  pointer-events: none;
+  border: 1.5px dashed var(--sb-accent);
+  background: rgba(99, 102, 241, 0.06);
+  border-radius: 2px;
+  display: none;
+  z-index: 50;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sb-accent); }
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#toolbar, #style-panel, #action-bar, #zoom-controls {
+  animation: fadeIn 0.3s ease-out;
+}

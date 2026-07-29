@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Sketchboard — a free, browser-based diagramming app with hand-drawn aesthetics. Draw shapes, write text, sketch freely, and export your diagrams." />
+    <title>Sketchboard — Hand-Drawn Diagramming</title>
+
+    <!-- Google Fonts: Inter (UI) + Caveat (canvas text, hand-drawn feel) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Caveat:wght@400;600&display=swap" rel="stylesheet" />
+
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="app">
+
+      <!-- ─── Canvas Layer ─────────────────────────────────────────────── -->
+      <div id="canvas-container" aria-label="Drawing canvas"></div>
+
+      <!-- ─── Toolbar ─────────────────────────────────────────────────── -->
+      <div id="toolbar" role="toolbar" aria-label="Drawing tools"></div>
+
+      <!-- ─── Style Panel ──────────────────────────────────────────────── -->
+      <aside id="style-panel" aria-label="Style controls" class="hidden"></aside>
+
+      <!-- ─── Action Bar (top-right) ───────────────────────────────────── -->
+      <div id="action-bar" role="group" aria-label="File actions"></div>
+
+      <!-- ─── Zoom Controls ────────────────────────────────────────────── -->
+      <div id="zoom-controls" role="group" aria-label="Zoom controls"></div>
+
+      <!-- ─── Inline Text Editor Overlay ──────────────────────────────── -->
+      <textarea
+        id="text-editor-overlay"
+        spellcheck="true"
+        autocomplete="off"
+        aria-label="Text editor"
+        rows="1"
+      ></textarea>
+
+    </div>
+
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

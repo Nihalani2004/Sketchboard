@@ -1,27 +1,22 @@
 /**
  * textTool.js — Click to place text; HTML overlay for editing; commits to scene on blur/Escape.
  *
- * Key fix: Konva sets tabIndex on its container div, so clicking the canvas steals focus from
- * the textarea triggering an immediate blur → commitOverlay race condition.
- * Solution: (1) strip the tabIndex after stage init, (2) use a delayed blur so a same-click
- * openOverlay call can cancel the pending commit.
+ * The overlay element is lazily resolved (not at import-time) because ES modules
+ * execute before the DOM is ready.
  */
 
-import { createElement, addElement, updateElement, removeElement, snapshot } from '../scene.js';
+import { createElement, addElement, updateElement, removeElement, snapshot, getElements } from '../scene.js';
 import { getStage, screenToStage } from '../stage.js';
 import { push as historyPush } from '../history.js';
 
-let overlay = null;           // resolved lazily so DOM is ready
+/** Lazily get the overlay element */
+function getOverlay() {
+  return document.getElementById('text-editor-overlay');
+}
+
 let styleDefaults = {};
 let editingId = null;
 let onCommitCb = null;
-let _blurTimer = null;        // pending blur commit timeout
-let _justOpened = false;      // flag: overlay was opened by this very click
-
-function getOverlay() {
-  if (!overlay) overlay = document.getElementById('text-editor-overlay');
-  return overlay;
-}
 
 export function updateTextDefaults(patch) {
   Object.assign(styleDefaults, patch);
@@ -29,68 +24,77 @@ export function updateTextDefaults(patch) {
 
 /** Open the text overlay at a given stage position */
 function openOverlay(stageX, stageY, initialText = '', existingId = null) {
+  const overlay = getOverlay();
+  if (!overlay) return;
+
   const stage = getStage();
   const scale = stage.scaleX();
   const stagePos = stage.position();
-  const el = getOverlay();
 
-  // Cancel any pending blur-triggered commit (same-click cancel)
-  if (_blurTimer) { clearTimeout(_blurTimer); _blurTimer = null; }
-  _justOpened = true;
-
+  // Convert stage coords to screen coords
   const screenX = stageX * scale + stagePos.x;
   const screenY = stageY * scale + stagePos.y;
+
   const fontSize = styleDefaults.fontSize || 20;
+  const scaledFontSize = fontSize * scale;
 
-  el.style.left       = `${screenX}px`;
-  el.style.top        = `${screenY}px`;
-  el.style.fontSize   = `${fontSize * scale}px`;
-  el.style.fontFamily = styleDefaults.fontFamily || "'Caveat', cursive";
-  el.style.color      = styleDefaults.strokeColor || 'var(--sb-text-primary)';
-  el.style.minWidth   = '120px';
-  el.style.width      = 'auto';
-  el.style.height     = 'auto';
-  el.value            = initialText;
-  el.classList.add('visible');
+  overlay.style.left = `${screenX}px`;
+  overlay.style.top = `${screenY}px`;
+  overlay.style.fontSize = `${scaledFontSize}px`;
+  overlay.style.fontFamily = styleDefaults.fontFamily || "'Caveat', cursive";
+  overlay.style.color = styleDefaults.strokeColor || 'var(--sb-text-primary)';
+  overlay.style.minWidth = '100px';
+  overlay.style.width = 'auto';
+  overlay.style.height = 'auto';
+  overlay.value = initialText;
+  overlay.classList.add('visible');
 
-  // Auto-resize
-  el.oninput = () => {
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-    el.style.width  = 'auto';
-    el.style.width  = `${Math.max(120, el.scrollWidth)}px`;
+  // Use requestAnimationFrame to ensure the element is displayed before focusing
+  requestAnimationFrame(() => {
+    overlay.focus();
+    // Auto-resize to fit initial content
+    if (initialText) {
+      overlay.style.height = `${overlay.scrollHeight}px`;
+      overlay.style.width = `${Math.max(100, overlay.scrollWidth)}px`;
+    }
+  });
+
+  // Auto-resize textarea as user types
+  overlay.oninput = () => {
+    overlay.style.height = 'auto';
+    overlay.style.height = `${overlay.scrollHeight}px`;
+    overlay.style.width = 'auto';
+    overlay.style.width = `${Math.max(100, overlay.scrollWidth)}px`;
   };
 
   editingId = existingId;
-
-  // Focus after a tiny delay so mousedown on canvas doesn't steal it back
-  requestAnimationFrame(() => {
-    el.focus();
-    _justOpened = false;
-  });
 }
 
 /** Commit the current overlay content to scene */
 function commitOverlay() {
-  const el = getOverlay();
-  if (!el.classList.contains('visible')) return; // already committed
+  const overlay = getOverlay();
+  if (!overlay) return;
 
-  const text = el.value.trim();
-  el.classList.remove('visible');
-  el.value = '';
+  const text = overlay.value.trim();
+  overlay.classList.remove('visible');
+  overlay.value = '';
+  overlay.oninput = null;
 
   const stage = getStage();
   const scale = stage.scaleX();
   const stagePos = stage.position();
-  const stageX = (parseFloat(el.style.left) - stagePos.x) / scale;
-  const stageY = (parseFloat(el.style.top)  - stagePos.y) / scale;
+  const screenX = parseFloat(overlay.style.left);
+  const screenY = parseFloat(overlay.style.top);
+  const stageX = (screenX - stagePos.x) / scale;
+  const stageY = (screenY - stagePos.y) / scale;
 
   if (editingId) {
-    historyPush(snapshot());
     if (text === '') {
+      historyPush(snapshot());
       removeElement(editingId);
       if (onCommitCb) onCommitCb(null, editingId);
     } else {
+      historyPush(snapshot());
       updateElement(editingId, { text });
       if (onCommitCb) onCommitCb({ id: editingId, text });
     }
@@ -98,10 +102,10 @@ function commitOverlay() {
     return;
   }
 
-  if (!text) return; // discard empty
+  if (!text) return;
 
   historyPush(snapshot());
-  const newEl = createElement('text', {
+  const el = createElement('text', {
     x: stageX,
     y: stageY,
     text,
@@ -109,104 +113,103 @@ function commitOverlay() {
     height: 30,
     ...styleDefaults,
   });
-  addElement(newEl);
-  if (onCommitCb) onCommitCb(newEl);
-}
-
-/** Shared blur handler with delay to avoid same-click race condition */
-function _setupBlurHandler() {
-  const el = getOverlay();
-  el.onblur = () => {
-    if (_justOpened) return; // same-click that opened the overlay, ignore
-    _blurTimer = setTimeout(() => {
-      _blurTimer = null;
-      commitOverlay();
-    }, 180);
-  };
-}
-
-/** Shared keydown handler */
-function _setupKeyHandler() {
-  const el = getOverlay();
-  el.onkeydown = (e) => {
-    if (e.key === 'Escape') {
-      if (_blurTimer) { clearTimeout(_blurTimer); _blurTimer = null; }
-      el.value = '';
-      el.classList.remove('visible');
-      editingId = null;
-      el.blur();
-    }
-    // Enter without Shift commits
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (_blurTimer) { clearTimeout(_blurTimer); _blurTimer = null; }
-      commitOverlay();
-      if (onCommitCb) {} // already called inside commitOverlay
-    }
-  };
+  addElement(el);
+  if (onCommitCb) onCommitCb(el);
 }
 
 /** Activate the text tool */
 export function activateTextTool(onCommit) {
   onCommitCb = onCommit;
   const stage = getStage();
-
-  // Remove Konva's tabIndex so the canvas div won't steal focus from textarea on click
-  stage.container().removeAttribute('tabindex');
-  stage.container().removeAttribute('tabIndex');
-
-  _setupBlurHandler();
-  _setupKeyHandler();
+  const overlay = getOverlay();
 
   function onPointerDown(e) {
     if (e.evt.button !== 0) return;
 
+    // If clicking on an existing text node, let selectionTool's double-click handle it
     const target = e.target;
-    // Clicking an existing text node → handled by double-click in selection tool
     if (target && target.attrs && target.attrs.elementType === 'text') return;
 
-    const el = getOverlay();
-    if (el.classList.contains('visible')) {
-      // Second click → commit current text, then place new on this click
-      if (_blurTimer) { clearTimeout(_blurTimer); _blurTimer = null; }
+    // Close any open overlay first
+    if (overlay && overlay.classList.contains('visible')) {
       commitOverlay();
-      // Allow a frame before opening at new position
-      const pos = screenToStage(e.evt.clientX, e.evt.clientY);
-      requestAnimationFrame(() => openOverlay(pos.x, pos.y));
       return;
     }
 
+    // Prevent this click from immediately blurring the overlay we're about to open
+    e.evt.preventDefault();
+
     const pos = screenToStage(e.evt.clientX, e.evt.clientY);
     openOverlay(pos.x, pos.y);
+  }
+
+  if (overlay) {
+    overlay.onblur = () => {
+      // Small delay to allow checking if the blur was caused by clicking the canvas
+      setTimeout(() => {
+        const o = getOverlay();
+        if (o && o.classList.contains('visible')) {
+          commitOverlay();
+        }
+      }, 100);
+    };
+
+    overlay.onkeydown = (e) => {
+      // Stop propagation so the keyboard shortcuts in main.js don't fire
+      e.stopPropagation();
+      if (e.key === 'Escape') {
+        const o = getOverlay();
+        if (o) {
+          o.value = '';
+          o.classList.remove('visible');
+        }
+        editingId = null;
+      }
+    };
   }
 
   stage.on('pointerdown.textTool', onPointerDown);
 
   return () => {
     stage.off('pointerdown.textTool');
-    const el = getOverlay();
-    el.onblur = null;
-    el.onkeydown = null;
-    if (_blurTimer) { clearTimeout(_blurTimer); _blurTimer = null; }
-    if (el.classList.contains('visible')) commitOverlay();
-    // Restore tabIndex so Konva's built-in keyboard handling still works
-    stage.container().setAttribute('tabindex', '0');
+    const o = getOverlay();
+    if (o) {
+      o.onblur = null;
+      o.onkeydown = null;
+      if (o.classList.contains('visible')) {
+        commitOverlay();
+      }
+    }
   };
 }
 
 /**
- * Open the text overlay for re-editing an existing text element.
+ * Open the text overlay over an existing text element for re-editing.
  * Called by selectionTool on double-click.
  */
 export function openTextEditForElement(el, onCommit) {
   onCommitCb = onCommit;
-  // Remove tabIndex while editing
-  const stage = getStage();
-  stage.container().removeAttribute('tabindex');
-  stage.container().removeAttribute('tabIndex');
-
-  _setupBlurHandler();
-  _setupKeyHandler();
+  const overlay = getOverlay();
 
   openOverlay(el.x, el.y, el.text || '', el.id);
+
+  if (overlay) {
+    overlay.onblur = () => {
+      setTimeout(() => {
+        const o = getOverlay();
+        if (o && o.classList.contains('visible')) commitOverlay();
+      }, 100);
+    };
+    overlay.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') {
+        const o = getOverlay();
+        if (o) {
+          o.value = '';
+          o.classList.remove('visible');
+        }
+        editingId = null;
+      }
+    };
+  }
 }

@@ -1,5 +1,13 @@
 /**
  * stage.js — Konva.Stage setup, layers, pan, and zoom.
+ *
+ * Pan methods:
+ *   1. Middle-mouse drag
+ *   2. Spacebar + left-click drag
+ *   3. Two-finger trackpad scroll (wheel events without ctrlKey)
+ * Zoom methods:
+ *   1. Ctrl/Cmd + scroll wheel
+ *   2. Pinch-to-zoom on trackpad (fires as ctrlKey + wheel)
  */
 
 import Konva from 'konva';
@@ -58,7 +66,7 @@ export function getScale() {
   return stage.scaleX();
 }
 
-/** Zoom to a target scale, centred on a given stage-space point */
+/** Zoom to a target scale, centred on a given screen-space point */
 export function zoomTo(newScale, focalX, focalY) {
   newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
   const oldScale = stage.scaleX();
@@ -125,7 +133,7 @@ function _onZoomChange() { if (_onZoomChangeCb) _onZoomChangeCb(stage.scaleX());
 
 // ── Pan ─────────────────────────────────────────────────────────────────────
 function _setupPan() {
-  // Middle-mouse drag
+  // Middle-mouse drag or Space + left-click drag
   stage.on('mousedown touchstart', (e) => {
     if (e.evt.button === 1 || spaceDown) {
       isPanning = true;
@@ -137,6 +145,7 @@ function _setupPan() {
   stage.on('mousemove touchmove', () => {
     if (!isPanning) return;
     const pos = stage.getPointerPosition();
+    if (!pos || !lastPointerPos) return;
     const dx = pos.x - lastPointerPos.x;
     const dy = pos.y - lastPointerPos.y;
     stage.position({
@@ -147,7 +156,7 @@ function _setupPan() {
     stage.batchDraw();
   });
 
-  stage.on('mouseup touchend mouseleave', (e) => {
+  stage.on('mouseup touchend mouseleave', () => {
     if (isPanning) {
       isPanning = false;
       stage.container().style.cursor = spaceDown ? 'grab' : '';
@@ -175,19 +184,31 @@ function _setupPan() {
 export function isSpaceDown() { return spaceDown; }
 export function isPanningActive() { return isPanning; }
 
-// ── Zoom (wheel) ─────────────────────────────────────────────────────────────
+// ── Zoom & Trackpad Pan (wheel) ──────────────────────────────────────────────
 function _setupZoom() {
   stage.on('wheel', (e) => {
     e.evt.preventDefault();
 
-    const oldScale = stage.scaleX();
     const pointer = stage.getPointerPosition();
 
-    // Pinch-to-zoom: ctrlKey + wheel
-    const delta = e.evt.ctrlKey ? -e.evt.deltaY * 0.02 : -e.evt.deltaY * 0.001;
-    const newScale = oldScale * Math.exp(delta);
-
-    zoomTo(newScale, pointer.x, pointer.y);
+    if (e.evt.ctrlKey || e.evt.metaKey) {
+      // ── Pinch-to-zoom or Ctrl+scroll → ZOOM ──────────────────────────
+      const oldScale = stage.scaleX();
+      const delta = -e.evt.deltaY * 0.01;
+      const newScale = oldScale * Math.exp(delta);
+      zoomTo(newScale, pointer.x, pointer.y);
+    } else {
+      // ── Two-finger trackpad scroll → PAN ─────────────────────────────
+      // On a trackpad, two-finger drag fires wheel events with deltaX/deltaY
+      // but without ctrlKey. We use these to pan the canvas.
+      const dx = -e.evt.deltaX;
+      const dy = -e.evt.deltaY;
+      stage.position({
+        x: stage.x() + dx,
+        y: stage.y() + dy,
+      });
+      stage.batchDraw();
+    }
   });
 }
 

@@ -2,110 +2,167 @@
  * laserTool.js — Transient laser pointer tool.
  * Points are captured ONLY while the left mouse button is held down.
  * A Konva.Animation fades out old points; never touches scene.js.
+ *
+ * The laser layer has hitGraphEnabled=false and listening=false so it never
+ * interferes with other tools' event handling.
  */
 
 import Konva from 'konva';
 import { getStage, getLaserLayer, screenToStage } from '../stage.js';
 
 const FADE_MS = 700;
-const LASER_COLOR = '#ef4444';
 
 let isActive = false;
-let points   = [];   // [{ x, y, t }]
+let points = [];
 let laserPath = null;
-let laserDot  = null;
-let anim      = null;
+let laserDot = null;
+let anim = null;
 
+/** Activate the laser tool */
 export function activateLaserTool() {
-  const stage = getLaserLayer().getStage() || getStage();
+  const stage = getStage();
   const layer = getLaserLayer();
 
-  // Trail line — explicitly set fill to '' so Konva never fills the path
+  // Ensure the laser layer doesn't interfere with hit detection
+  layer.hitGraphEnabled(false);
+
+  // Main laser trail — pure red line, NO fill, NO default black stroke
   laserPath = new Konva.Line({
     points: [],
-    stroke: LASER_COLOR,
-    strokeWidth: 4,
+    stroke: '#ef4444',
+    strokeWidth: 3,
+    fill: null,
     lineCap: 'round',
     lineJoin: 'round',
-    fill: '',           // ← prevents the black "fill" artefact
-    closed: false,      // ← never auto-close the path
     listening: false,
-    opacity: 1,
+    hitStrokeWidth: 0,
+    perfectDrawEnabled: false,
+    shadowColor: '#ef4444',
+    shadowBlur: 10,
+    shadowOpacity: 0.7,
+    shadowEnabled: true,
   });
 
   // Glowing dot at cursor tip
   laserDot = new Konva.Circle({
-    radius: 6,
-    fill: LASER_COLOR,
-    stroke: '',         // ← no outline on the dot
+    radius: 5,
+    fill: '#ef4444',
+    stroke: null,
+    strokeWidth: 0,
     listening: false,
-    visible: false,
-    shadowColor: LASER_COLOR,
+    hitStrokeWidth: 0,
+    shadowColor: '#ef4444',
     shadowBlur: 14,
     shadowOpacity: 0.9,
+    shadowEnabled: true,
+    visible: false,
   });
 
   layer.add(laserPath);
   layer.add(laserDot);
-  layer.batchDraw();
 
-  // ── Button-gated capture ─────────────────────────────────────────────────
-  stage.on('pointerdown.laser', (e) => {
-    if (e.evt.button === 0) {
-      isActive = true;
-      points = [];
-      const pos = screenToStage(e.evt.clientX, e.evt.clientY);
-      points.push({ x: pos.x, y: pos.y, t: Date.now() });
-      laserDot.x(pos.x);
-      laserDot.y(pos.y);
-      laserDot.visible(true);
-    }
-  });
+  // ── Button-gated: only capture while left button held ──────────────────
+  function onPointerDown(e) {
+    if (e.evt.button !== 0) return;
+    // Prevent the event from triggering any other tool logic
+    e.cancelBubble = true;
+    isActive = true;
+    points = [];
+    const pos = screenToStage(e.evt.clientX, e.evt.clientY);
+    points.push({ x: pos.x, y: pos.y, t: Date.now() });
+    laserDot.x(pos.x);
+    laserDot.y(pos.y);
+    laserDot.visible(true);
+    layer.batchDraw();
+  }
 
-  stage.on('pointermove.laser', (e) => {
+  function onPointerMove(e) {
     if (!isActive) return;
     const pos = screenToStage(e.evt.clientX, e.evt.clientY);
     points.push({ x: pos.x, y: pos.y, t: Date.now() });
     laserDot.x(pos.x);
     laserDot.y(pos.y);
-  });
+  }
 
-  // Separate off() calls — Konva may not parse space-separated names reliably
-  const _stopCapture = () => {
+  function onPointerUp() {
     isActive = false;
     laserDot.visible(false);
-  };
-  stage.on('pointerup.laser',    _stopCapture);
-  stage.on('pointerleave.laser', _stopCapture);
+    layer.batchDraw();
+  }
 
-  // ── Animation: drop old points, fade trail ───────────────────────────────
+  // Use the native DOM container instead of Konva stage events to avoid
+  // bubbling into selection/draw tool handlers
+  const container = stage.container();
+  container.addEventListener('pointerdown', _nativePointerDown);
+  container.addEventListener('pointermove', _nativePointerMove);
+  container.addEventListener('pointerup', _nativePointerUp);
+  container.addEventListener('pointerleave', _nativePointerUp);
+
+  function _nativePointerDown(e) {
+    if (e.button !== 0) return;
+    isActive = true;
+    points = [];
+    const rect = container.getBoundingClientRect();
+    const pos = screenToStage(e.clientX, e.clientY);
+    points.push({ x: pos.x, y: pos.y, t: Date.now() });
+    laserDot.x(pos.x);
+    laserDot.y(pos.y);
+    laserDot.visible(true);
+    layer.batchDraw();
+  }
+
+  function _nativePointerMove(e) {
+    if (!isActive) return;
+    const pos = screenToStage(e.clientX, e.clientY);
+    points.push({ x: pos.x, y: pos.y, t: Date.now() });
+    laserDot.x(pos.x);
+    laserDot.y(pos.y);
+  }
+
+  function _nativePointerUp() {
+    isActive = false;
+    laserDot.visible(false);
+    layer.batchDraw();
+  }
+
+  // ── Animation: drop old points, draw fading trail ─────────────────────
   anim = new Konva.Animation(() => {
     const now = Date.now();
+
+    // Drop expired points
     points = points.filter((p) => now - p.t < FADE_MS);
 
     if (points.length < 2) {
       laserPath.points([]);
-      laserPath.opacity(0);
-    } else {
-      const flat = points.flatMap((p) => [p.x, p.y]);
-      laserPath.points(flat);
-      // Fade from oldest point's age
-      const oldestAge = now - points[0].t;
-      laserPath.opacity(Math.max(0, 1 - oldestAge / FADE_MS));
+      return;
     }
+
+    // Build flat array for Konva.Line
+    const flat = [];
+    for (let i = 0; i < points.length; i++) {
+      flat.push(points[i].x, points[i].y);
+    }
+    laserPath.points(flat);
+
+    // Fade opacity based on the oldest remaining point's age
+    const oldestAge = now - points[0].t;
+    const alpha = Math.max(0, 1 - oldestAge / FADE_MS);
+    laserPath.opacity(alpha);
   }, layer);
 
   anim.start();
 
   return () => {
-    stage.off('pointerdown.laser');
-    stage.off('pointermove.laser');
-    stage.off('pointerup.laser');
-    stage.off('pointerleave.laser');
-    if (anim)      { anim.stop(); anim = null; }
+    // Remove native DOM listeners
+    container.removeEventListener('pointerdown', _nativePointerDown);
+    container.removeEventListener('pointermove', _nativePointerMove);
+    container.removeEventListener('pointerup', _nativePointerUp);
+    container.removeEventListener('pointerleave', _nativePointerUp);
+
+    if (anim) { anim.stop(); anim = null; }
     if (laserPath) { laserPath.destroy(); laserPath = null; }
-    if (laserDot)  { laserDot.destroy();  laserDot  = null; }
-    points   = [];
+    if (laserDot) { laserDot.destroy(); laserDot = null; }
+    points = [];
     isActive = false;
     layer.batchDraw();
   };

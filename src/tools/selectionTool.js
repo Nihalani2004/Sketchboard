@@ -1,5 +1,14 @@
 /**
  * selectionTool.js — Konva.Transformer for move/resize/rotate + multi-select.
+ *
+ * Features:
+ *   - Click a shape to select it, click again to deselect (toggle)
+ *   - Shift+click for multi-select
+ *   - Rubber-band (marquee) selection
+ *   - Drag selected shapes to move them
+ *   - Arrow keys to nudge selected shapes (Shift+arrow = 10px)
+ *   - Transform handles for resize/rotate
+ *   - Double-click text to edit
  */
 
 import Konva from 'konva';
@@ -10,12 +19,13 @@ import { computeSnap, clearGuides } from '../snapping.js';
 import { openTextEditForElement } from './textTool.js';
 
 let transformer = null;
-let selectionRect = null;
 let selectedIds = [];
 let onSelectionChangeCb = null;
 let onElementUpdateCb = null;
 let isSelecting = false;
 let selStart = null;
+let _onRenderNeeded = null;
+let _arrowKeyHandler = null;
 
 export function getSelectedIds() { return [...selectedIds]; }
 
@@ -31,6 +41,7 @@ function notifySelectionChange() {
 
 /** Activate selection tool */
 export function activateSelectionTool(onRenderNeeded) {
+  _onRenderNeeded = onRenderNeeded;
   const stage = getStage();
   const sceneLayer = getSceneLayer();
   const tLayer = getTransformerLayer();
@@ -47,87 +58,70 @@ export function activateSelectionTool(onRenderNeeded) {
     anchorCornerRadius: 3,
     padding: 4,
     keepRatio: false,
-    enabledAnchors: ['top-left','top-center','top-right','middle-left','middle-right','bottom-left','bottom-center','bottom-right'],
+    enabledAnchors: ['top-left', 'top-center', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right'],
   });
   tLayer.add(transformer);
   tLayer.batchDraw();
 
-  // ── Click to select ──────────────────────────────────────────────────────
-  stage.on('click.selTool',  (e) => {
-    if (e.target === stage || e.target.name() === 'guide') {
-      clearSelection();
-      return;
-    }
-    const node = e.target;
-    if (!node.hasName('element')) return;
-    const id = node.id();
-    if (e.evt.shiftKey) {
-      if (selectedIds.includes(id)) {
-        selectedIds = selectedIds.filter((i) => i !== id);
-      } else {
-        selectedIds.push(id);
+  // ── Click to select / toggle ────────────────────────────────────────────
+  // Delay click registration by one frame to avoid capturing the trailing click event
+  // from the pointerup/mouseup that committed a drawing.
+  let clickTimeout = setTimeout(() => {
+    if (!stage) return;
+    stage.on('click.selTool tap.selTool', (e) => {
+      // Click on empty canvas → deselect all
+      if (e.target === stage || e.target.name() === 'guide') {
+        clearSelection();
+        return;
       }
-    } else {
-      selectedIds = [id];
-    }
-    _applyTransformer();
-    notifySelectionChange();
-  });
-  stage.on('tap.selTool', (e) => {
-    if (e.target === stage || e.target.name() === 'guide') {
-      clearSelection();
-      return;
-    }
 
-    const node = e.target;
-    if (!node.hasName('element')) return;
+      const node = e.target;
+      if (!node.hasName('element')) return;
 
-    const id = node.id();
+      const id = node.id();
 
-    if (e.evt.shiftKey) {
-      // Multi-select toggle
-      if (selectedIds.includes(id)) {
-        selectedIds = selectedIds.filter((i) => i !== id);
+      if (e.evt.shiftKey) {
+        // Multi-select: toggle this element in/out of selection
+        if (selectedIds.includes(id)) {
+          selectedIds = selectedIds.filter((i) => i !== id);
+        } else {
+          selectedIds.push(id);
+        }
       } else {
-        selectedIds.push(id);
+        // Single click: toggle — if already the sole selection, deselect
+        if (selectedIds.length === 1 && selectedIds[0] === id) {
+          clearSelection();
+          return;
+        }
+        selectedIds = [id];
       }
-    } else {
-      selectedIds = [id];
-    }
 
-    _applyTransformer();
-    notifySelectionChange();
-  });
-
-  stage.on('dblclick.selTool', (e) => {
-    const node = e.target;
-    if (!node.hasName('element')) return;
-    if (node.attrs.elementType !== 'text') return;
-    const elements = getElements();
-    const el = elements.find((e) => e.id === node.id());
-    if (!el) return;
-    clearSelection();
-    openTextEditForElement(el, (result) => {
-      if (onRenderNeeded) onRenderNeeded();
+      _applyTransformer();
+      notifySelectionChange();
     });
-  });
-  stage.on('dbltap.selTool', (e) => {
+  }, 0);
+
+  // ── Double-click to edit text ──────────────────────────────────────────
+  stage.on('dblclick.selTool dbltap.selTool', (e) => {
     const node = e.target;
     if (!node.hasName('element')) return;
     if (node.attrs.elementType !== 'text') return;
+
     const elements = getElements();
     const el = elements.find((e) => e.id === node.id());
     if (!el) return;
+
     clearSelection();
     openTextEditForElement(el, (result) => {
       if (onRenderNeeded) onRenderNeeded();
     });
   });
 
-  // ── Drag-select (rubber band) ────────────────────────────────────────────
+  // ── Drag-select (rubber band) ──────────────────────────────────────────
   let selRectNode = null;
 
   stage.on('mousedown.selTool', (e) => {
+    // Only start rubber-band if clicking on empty canvas
     if (e.target !== stage && e.target.name() !== 'guide') return;
     if (e.evt.button !== 0) return;
 
@@ -189,7 +183,7 @@ export function activateSelectionTool(onRenderNeeded) {
     tLayer.batchDraw();
   });
 
-  // ── Transform end: sync back to scene ───────────────────────────────────
+  // ── Transform end: sync back to scene ─────────────────────────────────
   transformer.on('transformend', () => {
     historyPush(snapshot());
     transformer.nodes().forEach((node) => {
@@ -221,8 +215,11 @@ export function activateSelectionTool(onRenderNeeded) {
     });
     clearGuides();
     if (onRenderNeeded) onRenderNeeded();
+    // Re-apply transformer after render
+    _reapplyAfterRender();
   });
 
+  // ── Drag end: sync position to scene ──────────────────────────────────
   sceneLayer.on('dragend.selTool', (e) => {
     const node = e.target;
     if (!node.hasName('element')) return;
@@ -231,8 +228,12 @@ export function activateSelectionTool(onRenderNeeded) {
     const patch = { x: node.x(), y: node.y() };
     updateElement(node.id(), patch);
     if (onElementUpdateCb) onElementUpdateCb(node.id(), patch);
+    // Re-render and re-apply transformer
+    if (onRenderNeeded) onRenderNeeded();
+    _reapplyAfterRender();
   });
 
+  // ── Drag move: snapping ───────────────────────────────────────────────
   sceneLayer.on('dragmove.selTool', (e) => {
     const node = e.target;
     if (!node.hasName('element')) return;
@@ -241,29 +242,82 @@ export function activateSelectionTool(onRenderNeeded) {
     node.y(y);
   });
 
+  // ── Arrow key nudge ───────────────────────────────────────────────────
+  _arrowKeyHandler = (e) => {
+    if (e.target.matches('textarea, input')) return;
+    if (selectedIds.length === 0) return;
+
+    const ARROWS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+    if (!ARROWS.includes(e.key)) return;
+
+    e.preventDefault();
+    const step = e.shiftKey ? 10 : 1;
+    let dx = 0, dy = 0;
+
+    if (e.key === 'ArrowUp')    dy = -step;
+    if (e.key === 'ArrowDown')  dy = step;
+    if (e.key === 'ArrowLeft')  dx = -step;
+    if (e.key === 'ArrowRight') dx = step;
+
+    historyPush(snapshot());
+    selectedIds.forEach((id) => {
+      const el = getElements().find((e) => e.id === id);
+      if (el) {
+        updateElement(id, { x: el.x + dx, y: el.y + dy });
+      }
+    });
+    if (onRenderNeeded) onRenderNeeded();
+    _reapplyAfterRender();
+  };
+  sceneLayer.on('mouseenter.selTool', (e) => {
+    const node = e.target;
+    if (node.hasName('element')) {
+      stage.container().style.cursor = 'pointer';
+    }
+  });
+  sceneLayer.on('mouseleave.selTool', (e) => {
+    stage.container().style.cursor = 'default';
+  });
+
+  window.addEventListener('keydown', _arrowKeyHandler);
+
   return () => {
-    stage.off('click.selTool');
-    stage.off('tap.selTool');
-    stage.off('dblclick.selTool');
-    stage.off('dbltap.selTool');
-    stage.off('mousedown.selTool');
-    stage.off('mousemove.selTool');
-    stage.off('mouseup.selTool');
-    sceneLayer.off('dragend.selTool');
-    sceneLayer.off('dragmove.selTool');
+    clearTimeout(clickTimeout);
+    stage.off('click.selTool tap.selTool');
+    stage.off('dblclick.selTool dbltap.selTool');
+    stage.off('mousedown.selTool mousemove.selTool mouseup.selTool');
+    sceneLayer.off('dragend.selTool dragmove.selTool mouseenter.selTool mouseleave.selTool');
+    if (_arrowKeyHandler) {
+      window.removeEventListener('keydown', _arrowKeyHandler);
+      _arrowKeyHandler = null;
+    }
     if (transformer) { transformer.destroy(); transformer = null; }
-    if (selRectNode) { selRectNode.destroy(); selRectNode = null; }
     clearSelection();
     clearGuides();
     tLayer.batchDraw();
   };
 }
 
+/** Re-apply the transformer to current selected IDs after a render */
+function _reapplyAfterRender() {
+  if (!transformer || selectedIds.length === 0) return;
+  const sceneLayer = getSceneLayer();
+  const tLayer = getTransformerLayer();
+
+  const nodes = selectedIds
+    .map((id) => sceneLayer.findOne(`#${id}`))
+    .filter(Boolean);
+
+  nodes.forEach((n) => n.draggable(true));
+  transformer.nodes(nodes);
+  tLayer.batchDraw();
+}
+
 function _applyTransformer() {
   if (!transformer) return;
   const sceneLayer = getSceneLayer();
 
-  // Enable dragging on selected nodes
+  // Enable dragging on selected nodes, disable on others
   sceneLayer.getChildren((n) => n.hasName('element')).forEach((n) => {
     n.draggable(selectedIds.includes(n.id()));
   });
@@ -279,7 +333,9 @@ export function clearSelection() {
 
   // Disable all dragging
   const sceneLayer = getSceneLayer();
-  sceneLayer.getChildren((n) => n.hasName('element')).forEach((n) => n.draggable(false));
+  if (sceneLayer) {
+    sceneLayer.getChildren((n) => n.hasName('element')).forEach((n) => n.draggable(false));
+  }
   getTransformerLayer().batchDraw();
   notifySelectionChange();
 }
@@ -293,3 +349,11 @@ export function deleteSelected(onRenderNeeded) {
   ids.forEach((id) => removeElement(id));
   if (onRenderNeeded) onRenderNeeded();
 }
+
+/** Programmatically select an element by its ID */
+export function selectElement(id) {
+  selectedIds = [id];
+  _applyTransformer();
+  notifySelectionChange();
+}
+

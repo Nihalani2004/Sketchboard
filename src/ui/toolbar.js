@@ -59,9 +59,14 @@ export function initToolbar(isDark, onThemeToggle) {
     btn.setAttribute('aria-label', tool.label);
     btn.innerHTML = `<i data-lucide="${tool.icon}" style="width:18px;height:18px;stroke-width:1.8"></i>`;
     btn.addEventListener('click', () => {
-      activeTool = tool.id;
+      if (activeTool === tool.id) {
+        // Toggle active tool off → back to select
+        activeTool = 'select';
+      } else {
+        activeTool = tool.id;
+      }
       _updateActiveState();
-      if (onToolChangeCb) onToolChangeCb(tool.id);
+      if (onToolChangeCb) onToolChangeCb(activeTool);
     });
     toolbar.appendChild(btn);
 
@@ -89,7 +94,7 @@ export function initToolbar(isDark, onThemeToggle) {
     const nowDark = document.documentElement.classList.toggle('dark');
     _isDark = nowDark;
     themeBtn.innerHTML = `<i data-lucide="${nowDark ? 'sun' : 'moon'}" style="width:18px;height:18px;stroke-width:1.8"></i>`;
-    createIcons({ icons: { Sun, Moon }, nameAttr: 'data-lucide', attrs: { 'stroke-width': '1.8' } });
+    createIcons({ icons: { Sun, Moon }, nameAttr: 'data-lucide', attrs: { 'stroke-width': '1.8' }, root: themeBtn });
     if (onThemeToggle) onThemeToggle(nowDark);
   });
   toolbar.appendChild(themeBtn);
@@ -115,6 +120,7 @@ export function initToolbar(isDark, onThemeToggle) {
     },
     nameAttr: 'data-lucide',
     attrs: { 'stroke-width': '1.8' },
+    root: toolbar,
   });
 
   _updateActiveState();

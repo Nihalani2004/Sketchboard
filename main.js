@@ -25,7 +25,7 @@ import { activateFreehandTool, updateFreehandDefaults } from './src/tools/freeha
 import { activateTextTool, updateTextDefaults } from './src/tools/textTool.js';
 import {
   activateSelectionTool, clearSelection, deleteSelected,
-  onSelectionChange, onElementUpdate, getSelectedIds,
+  onSelectionChange, onElementUpdate, getSelectedIds, selectElement,
 } from './src/tools/selectionTool.js';
 import { activateLaserTool } from './src/tools/laserTool.js';
 import { exportJSON, importJSON, exportPNG } from './src/export.js';
@@ -107,10 +107,13 @@ function switchTool(toolId) {
     setDrawType(toolId, style);
     deactivateCurrent = activateDrawTool((el) => {
       render();
+      // Auto-switch to Select tool and select the new element
+      _autoSelectAfterDraw(el.id);
     });
   } else if (toolId === 'freehand') {
     deactivateCurrent = activateFreehandTool((el) => {
       render();
+      _autoSelectAfterDraw(el.id);
     });
   } else if (toolId === 'text') {
     deactivateCurrent = activateTextTool((result) => {
@@ -123,6 +126,12 @@ function switchTool(toolId) {
   } else if (toolId === 'laser') {
     deactivateCurrent = activateLaserTool();
   }
+}
+
+function _autoSelectAfterDraw(id) {
+  setActiveTool('select');
+  switchTool('select');
+  selectElement(id);
 }
 
 // ── Dark mode (respect system preference) ───────────────────────────────────

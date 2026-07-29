@@ -150,10 +150,10 @@ function _createPreview(x, y, w, h) {
     x, y, width: w, height: h,
     strokeColor: styleDefaults.strokeColor || '#6366f1',
     backgroundColor: styleDefaults.backgroundColor || 'transparent',
-    fillStyle: styleDefaults.fillStyle || 'hachure',
+    fillStyle: styleDefaults.fillStyle || 'solid',
     strokeWidth: styleDefaults.strokeWidth || 2,
     strokeStyle: styleDefaults.strokeStyle || 'solid',
-    roughness: styleDefaults.roughness ?? 1.2,
+    roughness: styleDefaults.roughness ?? 0,
     seed: styleDefaults.seed || Math.floor(Math.random() * 100000),
     opacity: 0.7,
   };

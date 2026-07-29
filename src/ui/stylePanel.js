@@ -26,10 +26,16 @@ const STROKE_STYLES = [
   { label: '···', value: 'dotted' },
 ];
 
+const ROUGHNESS_PRESETS = [
+  { label: 'Clean', value: 0 },
+  { label: 'Medium', value: 1 },
+  { label: 'Rough', value: 2 },
+];
+
 const FILL_STYLES = [
-  { label: 'None', value: 'hachure' },
-  { label: 'Hatch', value: 'cross-hatch' },
   { label: 'Solid', value: 'solid' },
+  { label: 'Hatch', value: 'hachure' },
+  { label: 'Cross', value: 'cross-hatch' },
 ];
 
 let currentStyle = { ...DEFAULT_STYLE };
@@ -105,7 +111,8 @@ function _buildHTML() {
     <!-- Roughness -->
     <div class="panel-section">
       <div class="panel-label">Roughness <span id="roughness-val" style="float:right;color:var(--sb-accent);font-weight:700"></span></div>
-      <input type="range" class="panel-slider" id="roughness-slider" min="0" max="4" step="0.1" />
+      <div class="panel-row" id="roughness-preset-btns"></div>
+      <input type="range" class="panel-slider" id="roughness-slider" min="0" max="4" step="0.1" style="margin-top:6px" />
     </div>
 
     <!-- Opacity -->
@@ -210,6 +217,21 @@ function _attachListeners() {
     strokeStyleBtns.appendChild(btn);
   });
 
+  // Roughness preset buttons
+  const roughBtns = document.getElementById('roughness-preset-btns');
+  ROUGHNESS_PRESETS.forEach(({ label, value }) => {
+    const btn = document.createElement('button');
+    btn.className = 'stroke-btn';
+    btn.setAttribute('data-value', value);
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      currentStyle.roughness = value;
+      _refresh();
+      _emit({ roughness: value });
+    });
+    roughBtns.appendChild(btn);
+  });
+
   // Roughness slider
   const roughSlider = document.getElementById('roughness-slider');
   roughSlider.value = currentStyle.roughness;
@@ -262,6 +284,11 @@ function _refresh() {
   // Stroke style
   document.querySelectorAll('#stroke-style-btns .stroke-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.value === currentStyle.strokeStyle);
+  });
+
+  // Roughness presets
+  document.querySelectorAll('#roughness-preset-btns .stroke-btn').forEach((btn) => {
+    btn.classList.toggle('active', parseFloat(btn.dataset.value) === currentStyle.roughness);
   });
 
   // Sliders

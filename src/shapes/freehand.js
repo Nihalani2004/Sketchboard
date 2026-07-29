@@ -7,18 +7,6 @@ import Konva from 'konva';
 import { getStroke } from 'perfect-freehand';
 
 /**
- * Convert perfect-freehand's output (array of [x,y] pairs) into an SVG path string.
- */
-function outlineToPath(points) {
-  if (!points || points.length < 2) return '';
-  const d = points.reduce((acc, [x, y], i) => {
-    if (i === 0) return `M ${x} ${y}`;
-    return `${acc} L ${x} ${y}`;
-  }, '');
-  return d + ' Z';
-}
-
-/**
  * Build a Path2D from the stroke output for efficient canvas rendering.
  */
 function getSvgPathFromStroke(stroke) {
@@ -51,10 +39,13 @@ export function createFreehandShape(el) {
     id: el.id,
     draggable: false,
     name: 'element',
+    // fill/stroke for hit detection only (sceneFunc overrides rendering)
+    fill: '#000',
+    stroke: '#000',
+    strokeWidth: 0,
     sceneFunc(ctx, shape) {
       const attrs = shape.attrs;
       const rawPoints = attrs.elementPoints || [];
-
       if (rawPoints.length < 2) return;
 
       const stroke = getStroke(rawPoints, {
@@ -73,21 +64,11 @@ export function createFreehandShape(el) {
       ctx._context.fill(path2d);
     },
     hitFunc(ctx, shape) {
-      const attrs = shape.attrs;
-      const rawPoints = attrs.elementPoints || [];
-      if (rawPoints.length < 2) return;
-
-      const stroke = getStroke(rawPoints, {
-        size: (attrs.strokeWidth || 2) * 3 + 10,
-        thinning: 0,
-        smoothing: 0.5,
-        streamline: 0.5,
-        simulatePressure: true,
-      });
-      const pathStr = getSvgPathFromStroke(stroke);
-      if (!pathStr) return;
-      const path2d = new Path2D(pathStr);
-      ctx._context.fill(path2d);
+      const w = shape.width() || 50;
+      const h = shape.height() || 50;
+      ctx.beginPath();
+      ctx.rect(0, 0, w, h);
+      ctx.closePath();
       ctx.fillStrokeShape(shape);
     },
   });
@@ -97,9 +78,9 @@ export function createFreehandShape(el) {
     strokeColor: el.strokeColor,
     strokeWidth: el.strokeWidth,
     elementId: el.id,
+    elementType: 'freedraw',
   });
 
-  // Calculate bounding box for the shape
   if (el.width) shape.width(el.width);
   if (el.height) shape.height(el.height);
 

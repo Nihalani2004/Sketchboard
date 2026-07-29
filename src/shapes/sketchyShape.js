@@ -1,6 +1,11 @@
 /**
  * sketchyShape.js — Shared factory: builds a Konva.Shape whose sceneFunc
  * delegates to a rough.js renderer, giving all shapes a hand-drawn aesthetic.
+ *
+ * Hit detection: Each shape sets `fill: '#000'` in the Konva config. Since we
+ * provide a custom sceneFunc, Konva NEVER draws this fill on screen — only our
+ * rough.js code runs for visual rendering. But the fill attribute makes
+ * fillStrokeShape() work in hitFunc, enabling click/drag/select.
  */
 
 import Konva from 'konva';
@@ -8,19 +13,19 @@ import rough from 'roughjs';
 
 /**
  * Build rough.js options from an element's style properties.
- * @param {object} el - scene element
- * @returns {object} rough.js drawable options
  */
 function getRoughOptions(el) {
+  const r = el.roughness ?? 0;
   return {
     stroke: el.strokeColor || '#1e1e1e',
     strokeWidth: el.strokeWidth || 2,
-    roughness: el.roughness ?? 1.2,
+    roughness: r,
+    bowing: r === 0 ? 0 : r,
     seed: el.seed || 1,
     fill: el.backgroundColor !== 'transparent' && el.backgroundColor
       ? el.backgroundColor
       : undefined,
-    fillStyle: el.fillStyle || 'hachure',
+    fillStyle: el.fillStyle || 'solid',
     strokeLineDash: el.strokeStyle === 'dashed'
       ? [8, 6]
       : el.strokeStyle === 'dotted'
@@ -29,11 +34,11 @@ function getRoughOptions(el) {
   };
 }
 
-/**
- * Creates a Konva.Shape with a sketchy sceneFunc for a RECTANGLE.
- */
-export function createSketchyRect(el) {
-  const shape = new Konva.Shape({
+/* ─── helpers ──────────────────────────────────────────────────────────── */
+
+/** Common Konva attrs for every shape */
+function baseAttrs(el) {
+  return {
     x: el.x,
     y: el.y,
     width: el.width,
@@ -43,12 +48,37 @@ export function createSketchyRect(el) {
     id: el.id,
     draggable: false,
     name: 'element',
+    // fill/stroke are for HIT DETECTION only. Custom sceneFunc fully
+    // overrides visual rendering, so these are never painted on screen.
+    fill: '#000',
+    stroke: '#000',
+    strokeWidth: 0,
+  };
+}
+
+/** Copy element style props into shape.attrs for later use by sceneFunc */
+function applyStyleAttrs(shape, el) {
+  Object.assign(shape.attrs, {
+    strokeColor: el.strokeColor,
+    backgroundColor: el.backgroundColor,
+    fillStyle: el.fillStyle,
+    strokeWidth: el.strokeWidth,
+    strokeStyle: el.strokeStyle,
+    roughness: el.roughness,
+    seed: el.seed,
+    elementId: el.id,
+    elementType: el.type,
+  });
+}
+
+/* ─── Rectangle ────────────────────────────────────────────────────────── */
+
+export function createSketchyRect(el) {
+  const shape = new Konva.Shape({
+    ...baseAttrs(el),
     sceneFunc(ctx, shape) {
-      const w = shape.width();
-      const h = shape.height();
       const rc = rough.canvas(ctx.canvas);
-      const opts = getRoughOptions(shape.attrs);
-      rc.rectangle(0, 0, w, h, opts);
+      rc.rectangle(0, 0, shape.width(), shape.height(), getRoughOptions(shape.attrs));
     },
     hitFunc(ctx, shape) {
       ctx.beginPath();
@@ -57,76 +87,37 @@ export function createSketchyRect(el) {
       ctx.fillStrokeShape(shape);
     },
   });
-  // Store element attrs for style updates
-  Object.assign(shape.attrs, {
-    strokeColor: el.strokeColor,
-    backgroundColor: el.backgroundColor,
-    fillStyle: el.fillStyle,
-    strokeWidth: el.strokeWidth,
-    strokeStyle: el.strokeStyle,
-    roughness: el.roughness,
-    seed: el.seed,
-    elementId: el.id,
-  });
+  applyStyleAttrs(shape, el);
   return shape;
 }
 
-/**
- * Creates a Konva.Shape with a sketchy sceneFunc for an ELLIPSE.
- */
+/* ─── Ellipse ──────────────────────────────────────────────────────────── */
+
 export function createSketchyEllipse(el) {
   const shape = new Konva.Shape({
-    x: el.x,
-    y: el.y,
-    width: el.width,
-    height: el.height,
-    rotation: el.angle || 0,
-    opacity: el.opacity ?? 1,
-    id: el.id,
-    draggable: false,
-    name: 'element',
+    ...baseAttrs(el),
     sceneFunc(ctx, shape) {
-      const w = shape.width();
-      const h = shape.height();
+      const w = shape.width(), h = shape.height();
       const rc = rough.canvas(ctx.canvas);
-      const opts = getRoughOptions(shape.attrs);
-      rc.ellipse(w / 2, h / 2, w, h, opts);
+      rc.ellipse(w / 2, h / 2, w, h, getRoughOptions(shape.attrs));
     },
     hitFunc(ctx, shape) {
+      const w = shape.width(), h = shape.height();
       ctx.beginPath();
-      ctx.ellipse(shape.width() / 2, shape.height() / 2, shape.width() / 2, shape.height() / 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
       ctx.closePath();
       ctx.fillStrokeShape(shape);
     },
   });
-  Object.assign(shape.attrs, {
-    strokeColor: el.strokeColor,
-    backgroundColor: el.backgroundColor,
-    fillStyle: el.fillStyle,
-    strokeWidth: el.strokeWidth,
-    strokeStyle: el.strokeStyle,
-    roughness: el.roughness,
-    seed: el.seed,
-    elementId: el.id,
-  });
+  applyStyleAttrs(shape, el);
   return shape;
 }
 
-/**
- * Creates a Konva.Shape for a LINE.
- * The line goes from (0,0) to (el.width, el.height) in local coords.
- */
+/* ─── Line ─────────────────────────────────────────────────────────────── */
+
 export function createSketchyLine(el) {
   const shape = new Konva.Shape({
-    x: el.x,
-    y: el.y,
-    width: el.width,
-    height: el.height,
-    rotation: el.angle || 0,
-    opacity: el.opacity ?? 1,
-    id: el.id,
-    draggable: false,
-    name: 'element',
+    ...baseAttrs(el),
     sceneFunc(ctx, shape) {
       const rc = rough.canvas(ctx.canvas);
       const opts = getRoughOptions(shape.attrs);
@@ -135,55 +126,39 @@ export function createSketchyLine(el) {
     },
     hitFunc(ctx, shape) {
       const w = shape.width(), h = shape.height();
-      const thickness = Math.max(shape.attrs.strokeWidth || 2, 10);
+      const t = Math.max(shape.attrs.strokeWidth || 2, 14);
+      const a = Math.atan2(h, w);
+      const nx = -Math.sin(a) * t / 2;
+      const ny = Math.cos(a) * t / 2;
       ctx.beginPath();
-      // Hit area is a thickened rect around the line
-      ctx.rect(-thickness / 2, -thickness / 2, w + thickness, h + thickness);
+      ctx.moveTo(nx, ny);
+      ctx.lineTo(w + nx, h + ny);
+      ctx.lineTo(w - nx, h - ny);
+      ctx.lineTo(-nx, -ny);
       ctx.closePath();
       ctx.fillStrokeShape(shape);
     },
   });
-  Object.assign(shape.attrs, {
-    strokeColor: el.strokeColor,
-    backgroundColor: el.backgroundColor,
-    fillStyle: el.fillStyle,
-    strokeWidth: el.strokeWidth,
-    strokeStyle: el.strokeStyle,
-    roughness: el.roughness,
-    seed: el.seed,
-    elementId: el.id,
-  });
+  applyStyleAttrs(shape, el);
   return shape;
 }
 
-/**
- * Creates a Konva.Shape for an ARROW (line + arrowhead).
- */
+/* ─── Arrow ────────────────────────────────────────────────────────────── */
+
 export function createSketchyArrow(el) {
   const shape = new Konva.Shape({
-    x: el.x,
-    y: el.y,
-    width: el.width,
-    height: el.height,
-    rotation: el.angle || 0,
-    opacity: el.opacity ?? 1,
-    id: el.id,
-    draggable: false,
-    name: 'element',
+    ...baseAttrs(el),
     sceneFunc(ctx, shape) {
       const rc = rough.canvas(ctx.canvas);
       const w = shape.width(), h = shape.height();
       const opts = getRoughOptions(shape.attrs);
       delete opts.fill;
 
-      // Draw line
       rc.line(0, 0, w, h, opts);
 
-      // Draw arrowhead at (w, h) pointing in direction (w, h)
       const angle = Math.atan2(h, w);
       const headLen = Math.max(12, (shape.attrs.strokeWidth || 2) * 5);
       const headAngle = Math.PI / 6;
-
       const ax1 = w - headLen * Math.cos(angle - headAngle);
       const ay1 = h - headLen * Math.sin(angle - headAngle);
       const ax2 = w - headLen * Math.cos(angle + headAngle);
@@ -191,35 +166,30 @@ export function createSketchyArrow(el) {
 
       rc.linearPath([[ax1, ay1], [w, h], [ax2, ay2]], {
         ...opts,
-        roughness: Math.min(opts.roughness || 1.2, 1),
+        roughness: opts.roughness ?? 0,
       });
     },
     hitFunc(ctx, shape) {
       const w = shape.width(), h = shape.height();
-      const thickness = Math.max(shape.attrs.strokeWidth || 2, 10);
+      const t = Math.max(shape.attrs.strokeWidth || 2, 14);
+      const a = Math.atan2(h, w);
+      const nx = -Math.sin(a) * t / 2;
+      const ny = Math.cos(a) * t / 2;
       ctx.beginPath();
-      ctx.rect(-thickness / 2, -thickness / 2, w + thickness, h + thickness);
+      ctx.moveTo(nx, ny);
+      ctx.lineTo(w + nx, h + ny);
+      ctx.lineTo(w - nx, h - ny);
+      ctx.lineTo(-nx, -ny);
       ctx.closePath();
       ctx.fillStrokeShape(shape);
     },
   });
-  Object.assign(shape.attrs, {
-    strokeColor: el.strokeColor,
-    backgroundColor: el.backgroundColor,
-    fillStyle: el.fillStyle,
-    strokeWidth: el.strokeWidth,
-    strokeStyle: el.strokeStyle,
-    roughness: el.roughness,
-    seed: el.seed,
-    elementId: el.id,
-  });
+  applyStyleAttrs(shape, el);
   return shape;
 }
 
-/**
- * Apply a partial style update to an existing sketchy Konva.Shape.
- * Mutates the shape's attrs so the next redraw picks up the new values.
- */
+/* ─── Style updater ────────────────────────────────────────────────────── */
+
 export function updateSketchyAttrs(shape, patch) {
   const styleKeys = ['strokeColor', 'backgroundColor', 'fillStyle', 'strokeWidth', 'strokeStyle', 'roughness'];
   styleKeys.forEach((k) => {

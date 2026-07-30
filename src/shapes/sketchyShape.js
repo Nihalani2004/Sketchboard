@@ -16,8 +16,14 @@ import rough from 'roughjs';
  */
 function getRoughOptions(el) {
   const r = el.roughness ?? 0;
+  const isDark = document.documentElement.classList.contains('dark');
+  let stroke = el.strokeColor || '#1e1e1e';
+  if (isDark && (stroke === '#1e1e1e' || stroke === '#000000' || stroke === '#000')) {
+    stroke = '#e8e8e8';
+  }
+
   return {
-    stroke: el.strokeColor || '#1e1e1e',
+    stroke,
     strokeWidth: el.strokeWidth || 2,
     roughness: r,
     bowing: r === 0 ? 0 : r,
@@ -105,6 +111,32 @@ export function createSketchyEllipse(el) {
       const w = shape.width(), h = shape.height();
       ctx.beginPath();
       ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.fillStrokeShape(shape);
+    },
+  });
+  applyStyleAttrs(shape, el);
+  return shape;
+}
+
+/* ─── Diamond ──────────────────────────────────────────────────────────── */
+
+export function createSketchyDiamond(el) {
+  const shape = new Konva.Shape({
+    ...baseAttrs(el),
+    sceneFunc(ctx, shape) {
+      const w = shape.width(), h = shape.height();
+      const rc = rough.canvas(ctx.canvas);
+      const points = [[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]];
+      rc.polygon(points, getRoughOptions(shape.attrs));
+    },
+    hitFunc(ctx, shape) {
+      const w = shape.width(), h = shape.height();
+      ctx.beginPath();
+      ctx.moveTo(w / 2, 0);
+      ctx.lineTo(w, h / 2);
+      ctx.lineTo(w / 2, h);
+      ctx.lineTo(0, h / 2);
       ctx.closePath();
       ctx.fillStrokeShape(shape);
     },

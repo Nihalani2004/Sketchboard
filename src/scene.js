@@ -57,6 +57,50 @@ export function removeElement(id) {
   elements = elements.filter((e) => e.id !== id);
 }
 
+/** Bring target elements to the front of the Z-index stack */
+export function bringToFront(ids) {
+  if (!ids || ids.length === 0) return;
+  const targetIds = new Set(ids);
+  const selected = elements.filter((e) => targetIds.has(e.id));
+  const unselected = elements.filter((e) => !targetIds.has(e.id));
+  elements = [...unselected, ...selected];
+}
+
+/** Send target elements to the back of the Z-index stack */
+export function sendToBack(ids) {
+  if (!ids || ids.length === 0) return;
+  const targetIds = new Set(ids);
+  const selected = elements.filter((e) => targetIds.has(e.id));
+  const unselected = elements.filter((e) => !targetIds.has(e.id));
+  elements = [...selected, ...unselected];
+}
+
+/** Move target elements forward one position */
+export function bringForward(ids) {
+  if (!ids || ids.length === 0) return;
+  const targetIds = new Set(ids);
+  for (let i = elements.length - 2; i >= 0; i--) {
+    if (targetIds.has(elements[i].id) && !targetIds.has(elements[i + 1].id)) {
+      const temp = elements[i];
+      elements[i] = elements[i + 1];
+      elements[i + 1] = temp;
+    }
+  }
+}
+
+/** Move target elements backward one position */
+export function sendBackward(ids) {
+  if (!ids || ids.length === 0) return;
+  const targetIds = new Set(ids);
+  for (let i = 1; i < elements.length; i++) {
+    if (targetIds.has(elements[i].id) && !targetIds.has(elements[i - 1].id)) {
+      const temp = elements[i];
+      elements[i] = elements[i - 1];
+      elements[i - 1] = temp;
+    }
+  }
+}
+
 /** Replace the entire element array (used by undo/redo and import) */
 export function setElements(newElements) {
   elements = newElements.map(cloneElement);

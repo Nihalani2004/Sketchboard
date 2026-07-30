@@ -19,15 +19,18 @@
 }
 
 .dark {
-  --sb-canvas-bg: #1a1a2e;
+  --sb-canvas-bg: #12121e;
   --sb-stroke-default: #e8e8e8;
-  --sb-panel-bg: rgba(30, 30, 46, 0.96);
-  --sb-panel-border: rgba(255, 255, 255, 0.08);
-  --sb-panel-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  --sb-toolbar-bg: rgba(30, 30, 46, 0.98);
-  --sb-toolbar-border: rgba(255, 255, 255, 0.08);
-  --sb-text-primary: #e8e8e8;
-  --sb-text-muted: #9ca3af;
+  --sb-accent: #818cf8;
+  --sb-accent-hover: #6366f1;
+  --sb-panel-bg: rgba(22, 22, 38, 0.92);
+  --sb-panel-border: rgba(255, 255, 255, 0.12);
+  --sb-panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --sb-toolbar-bg: rgba(22, 22, 38, 0.94);
+  --sb-toolbar-border: rgba(255, 255, 255, 0.12);
+  --sb-text-primary: #f1f5f9;
+  --sb-text-muted: #94a3b8;
+  --sb-guide-color: #818cf8;
 }
 
 /* ─── Global resets ──────────────────────────────────────────────────────── */
@@ -59,6 +62,27 @@ html, body {
   position: absolute;
   inset: 0;
   cursor: default;
+  transition: background 0.3s;
+}
+
+#canvas-container.grid-dots {
+  background-image: radial-gradient(rgba(99, 102, 241, 0.25) 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+.dark #canvas-container.grid-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.2) 1.2px, transparent 1.2px);
+}
+
+#canvas-container.grid-mesh {
+  background-image: linear-gradient(to right, rgba(99, 102, 241, 0.08) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.dark #canvas-container.grid-mesh {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
 }
 
 /* ─── Toolbar ────────────────────────────────────────────────────────────── */
@@ -144,7 +168,7 @@ html, body {
 /* ─── Style Panel ────────────────────────────────────────────────────────── */
 #style-panel {
   position: absolute;
-  top: 80px;
+  top: 16px;
   left: 16px;
   z-index: 100;
   background: var(--sb-panel-bg);
@@ -387,26 +411,49 @@ html, body {
   right: 16px;
   z-index: 100;
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .action-btn {
+  position: relative;
   height: 36px;
-  padding: 0 14px;
+  padding: 0 10px;
   border-radius: 9px;
   border: 1px solid var(--sb-panel-border);
   background: var(--sb-panel-bg);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--sb-text-muted);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   backdrop-filter: blur(12px);
   box-shadow: var(--sb-panel-shadow);
   transition: background 0.15s, color 0.15s, transform 0.1s;
   white-space: nowrap;
+}
+
+/* Tooltip for action buttons */
+.action-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 15, 15, 0.85);
+  color: white;
+  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 200;
+}
+.action-btn:hover::after {
+  opacity: 1;
 }
 
 .action-btn:hover {
@@ -446,4 +493,21 @@ html, body {
 
 #toolbar, #style-panel, #action-bar, #zoom-controls {
   animation: fadeIn 0.3s ease-out;
+}
+
+/* ─── Responsive Adjustments ─────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  #action-bar {
+    top: 12px;
+    left: 12px;
+    gap: 4px;
+  }
+  .action-btn {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+  #style-panel {
+    top: 60px;
+    left: 12px;
+  }
 }

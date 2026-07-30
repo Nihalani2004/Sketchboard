@@ -17,6 +17,15 @@ export function updateFreehandDefaults(patch) {
   Object.assign(styleDefaults, patch);
 }
 
+function getPolygonPathFromPoints(points) {
+  if (!points || points.length < 3) return '';
+  const d = points.reduce((acc, [x, y], i) => {
+    if (i === 0) return `M ${x} ${y}`;
+    return `${acc} L ${x} ${y}`;
+  }, '');
+  return d + ' Z';
+}
+
 function getSvgPathFromStroke(stroke) {
   if (!stroke || stroke.length < 4) return '';
   const d = [];
@@ -53,6 +62,18 @@ export function activateFreehandTool(onCommit) {
       sceneFunc(ctx, shape) {
         const pts = shape.attrs._pts || [];
         if (pts.length < 2) return;
+
+        // Render live fill if set
+        if (styleDefaults.backgroundColor && styleDefaults.backgroundColor !== 'transparent' && pts.length >= 3) {
+          const fillPathStr = getPolygonPathFromPoints(pts);
+          if (fillPathStr) {
+            const fillPath2d = new Path2D(fillPathStr);
+            ctx._context.fillStyle = styleDefaults.backgroundColor;
+            ctx._context.globalAlpha = styleDefaults.opacity ?? 1;
+            ctx._context.fill(fillPath2d);
+          }
+        }
+
         const stroke = getStroke(pts, {
           size: (styleDefaults.strokeWidth || 2) * 3,
           thinning: 0.5,

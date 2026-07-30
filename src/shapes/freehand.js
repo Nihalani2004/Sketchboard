@@ -1,10 +1,23 @@
 /**
  * freehand.js — Renders a freedraw element using perfect-freehand.
- * Converts the output outline into a filled Konva.Shape.
+ * Converts the output outline into a filled Konva.Shape. Supports background fill color & fill style.
  */
 
 import Konva from 'konva';
+import rough from 'roughjs';
 import { getStroke } from 'perfect-freehand';
+
+/**
+ * Build an SVG polygon path string from raw points to fill the interior of a freehand figure.
+ */
+function getPolygonPathFromPoints(points) {
+  if (!points || points.length < 3) return '';
+  const d = points.reduce((acc, [x, y], i) => {
+    if (i === 0) return `M ${x} ${y}`;
+    return `${acc} L ${x} ${y}`;
+  }, '');
+  return d + ' Z';
+}
 
 /**
  * Build a Path2D from the stroke output for efficient canvas rendering.
@@ -48,6 +61,28 @@ export function createFreehandShape(el) {
       const rawPoints = attrs.elementPoints || [];
       if (rawPoints.length < 2) return;
 
+      // 1. Fill background if set and not transparent
+      if (attrs.backgroundColor && attrs.backgroundColor !== 'transparent' && rawPoints.length >= 3) {
+        const fillPathStr = getPolygonPathFromPoints(rawPoints);
+        if (fillPathStr) {
+          if (attrs.fillStyle === 'hachure' || attrs.fillStyle === 'cross-hatch') {
+            const rc = rough.canvas(ctx.canvas);
+            rc.path(fillPathStr, {
+              stroke: 'none',
+              fill: attrs.backgroundColor,
+              fillStyle: attrs.fillStyle,
+              roughness: attrs.roughness ?? 0,
+              seed: attrs.seed || 1,
+            });
+          } else {
+            const fillPath2d = new Path2D(fillPathStr);
+            ctx._context.fillStyle = attrs.backgroundColor;
+            ctx._context.fill(fillPath2d);
+          }
+        }
+      }
+
+      // 2. Draw stroke outline on top
       const stroke = getStroke(rawPoints, {
         size: (attrs.strokeWidth || 2) * 3,
         thinning: 0.5,
@@ -76,7 +111,11 @@ export function createFreehandShape(el) {
   Object.assign(shape.attrs, {
     elementPoints: el.points || [],
     strokeColor: el.strokeColor,
+    backgroundColor: el.backgroundColor,
+    fillStyle: el.fillStyle,
     strokeWidth: el.strokeWidth,
+    roughness: el.roughness,
+    seed: el.seed,
     elementId: el.id,
     elementType: 'freedraw',
   });

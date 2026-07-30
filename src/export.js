@@ -173,3 +173,68 @@ export function exportPNG() {
 
   download(dataUrl, `sketchboard-${Date.now()}.png`, 'dataURL');
 }
+
+/**
+ * Copy PNG image directly to clipboard for fast pasting in Slack, Docs, etc.
+ */
+export async function copyPNGToClipboard() {
+  const elements = getElements();
+  if (elements.length === 0) {
+    alert('Nothing to copy! Draw something first.');
+    return;
+  }
+
+  const stage = getStage();
+  const trLayer = getTransformerLayer();
+  const laserLayer = getLaserLayer();
+
+  const trWasVisible = trLayer.visible();
+  const laserWasVisible = laserLayer.visible();
+  trLayer.visible(false);
+  laserLayer.visible(false);
+
+  const textOverlay = document.getElementById('text-editor-overlay');
+  const textWasVisible = textOverlay && textOverlay.classList.contains('visible');
+  if (textWasVisible) textOverlay.classList.remove('visible');
+
+  const PADDING = 40;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  elements.forEach((el) => {
+    minX = Math.min(minX, el.x);
+    minY = Math.min(minY, el.y);
+    maxX = Math.max(maxX, el.x + Math.abs(el.width || 100));
+    maxY = Math.max(maxY, el.y + Math.abs(el.height || 30));
+  });
+
+  const scale = stage.scaleX();
+  const stagePos = stage.position();
+
+  const screenX = minX * scale + stagePos.x - PADDING * scale;
+  const screenY = minY * scale + stagePos.y - PADDING * scale;
+  const screenW = (maxX - minX) * scale + PADDING * 2 * scale;
+  const screenH = (maxY - minY) * scale + PADDING * 2 * scale;
+
+  stage.batchDraw();
+
+  const dataUrl = stage.toDataURL({
+    pixelRatio: 2,
+    x: screenX,
+    y: screenY,
+    width: screenW,
+    height: screenH,
+    mimeType: 'image/png',
+  });
+
+  trLayer.visible(trWasVisible);
+  laserLayer.visible(laserWasVisible);
+  if (textWasVisible) textOverlay.classList.add('visible');
+
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    alert('Copied PNG image to clipboard!');
+  } catch (err) {
+    alert(`Clipboard copy not supported or permission denied: ${err.message}`);
+  }
+}

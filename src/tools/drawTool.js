@@ -6,7 +6,7 @@
 import Konva from 'konva';
 import { createElement, addElement, snapshot } from '../scene.js';
 import { getStage, getSceneLayer, getTransformerLayer, screenToStage } from '../stage.js';
-import { createSketchyRect, createSketchyEllipse, createSketchyLine, createSketchyArrow } from '../shapes/sketchyShape.js';
+import { createSketchyRect, createSketchyEllipse, createSketchyLine, createSketchyArrow, createSketchyDiamond } from '../shapes/sketchyShape.js';
 import { push as historyPush } from '../history.js';
 
 let isDrawing = false;
@@ -104,8 +104,16 @@ export function activateDrawTool(onCommit) {
     }
     getTransformerLayer().batchDraw();
 
-    // Discard if too small (accidental click)
-    if (Math.abs(w) < 5 && Math.abs(h) < 5) return;
+    // If too small (e.g. quick click), give default shape dimensions rather than discarding
+    if (Math.abs(w) < 5 && Math.abs(h) < 5) {
+      if (activeType === 'line' || activeType === 'arrow') {
+        w = 100;
+        h = 0;
+      } else {
+        w = 120;
+        h = 80;
+      }
+    }
 
     // Normalize negative dimensions
     const x = w < 0 ? startPos.x + w : startPos.x;
@@ -162,6 +170,7 @@ function _createPreview(x, y, w, h) {
   else if (activeType === 'ellipse') previewShape = createSketchyEllipse(mockEl);
   else if (activeType === 'line') previewShape = createSketchyLine(mockEl);
   else if (activeType === 'arrow') previewShape = createSketchyArrow(mockEl);
+  else if (activeType === 'diamond') previewShape = createSketchyDiamond(mockEl);
 
   if (previewShape) {
     layer.add(previewShape);

@@ -8,9 +8,11 @@ import {
   MousePointer2,
   Square,
   Circle,
+  Diamond,
   Minus,
   MoveRight,
   Pen,
+  Eraser,
   Type,
   Zap,
   Hand,
@@ -22,10 +24,12 @@ import {
 const TOOLS = [
   { id: 'select',    label: 'Select',    icon: 'mouse-pointer-2', key: 'V' },
   { id: 'rectangle', label: 'Rectangle', icon: 'square',          key: 'R' },
-  { id: 'ellipse',   label: 'Ellipse',   icon: 'circle',          key: 'E' },
+  { id: 'ellipse',   label: 'Ellipse',   icon: 'circle',          key: 'O' },
+  { id: 'diamond',   label: 'Diamond',   icon: 'diamond',         key: 'D' },
   { id: 'arrow',     label: 'Arrow',     icon: 'move-right',      key: 'A' },
   { id: 'line',      label: 'Line',      icon: 'minus',           key: 'L' },
   { id: 'freehand',  label: 'Pen',       icon: 'pen',             key: 'P' },
+  { id: 'eraser',    label: 'Eraser',    icon: 'eraser',          key: 'E' },
   { id: 'text',      label: 'Text',      icon: 'type',            key: 'T' },
   { id: 'laser',     label: 'Laser',     icon: 'zap',             key: 'Z' },
   { id: 'pan',       label: 'Pan',       icon: 'hand',            key: 'H' },
@@ -116,7 +120,7 @@ export function initToolbar(isDark, onThemeToggle) {
   // Materialise all icons
   createIcons({
     icons: {
-      MousePointer2, Square, Circle, Minus, MoveRight, Pen, Type, Zap, Hand, Sun, Moon, Trash2,
+      MousePointer2, Square, Circle, Diamond, Minus, MoveRight, Pen, Eraser, Type, Zap, Hand, Sun, Moon, Trash2,
     },
     nameAttr: 'data-lucide',
     attrs: { 'stroke-width': '1.8' },

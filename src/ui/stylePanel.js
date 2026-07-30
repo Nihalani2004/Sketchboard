@@ -69,6 +69,9 @@ export function initStylePanel() {
   _refresh();
 }
 
+let onPanelActionCb = null;
+export function onPanelAction(cb) { onPanelActionCb = cb; }
+
 function _buildHTML() {
   return `
     <!-- Panel header -->
@@ -125,6 +128,19 @@ function _buildHTML() {
     <div class="panel-section" id="panel-font-section" style="display:none">
       <div class="panel-label">Font Size <span id="fontsize-val" style="float:right;color:var(--sb-accent);font-weight:700"></span></div>
       <input type="range" class="panel-slider" id="fontsize-slider" min="8" max="128" step="1" />
+    </div>
+
+    <!-- Layer & Quick Actions -->
+    <div class="panel-section">
+      <div class="panel-label">Actions & Layers</div>
+      <div class="panel-row" style="margin-bottom:6px">
+        <button class="stroke-btn" id="btn-act-duplicate" title="Duplicate [Ctrl+D]">Duplicate</button>
+        <button class="stroke-btn" id="btn-act-delete" title="Delete [Delete]">Delete</button>
+      </div>
+      <div class="panel-row">
+        <button class="stroke-btn" id="btn-act-front" title="Bring to Front [Ctrl+] ]">Front</button>
+        <button class="stroke-btn" id="btn-act-back" title="Send to Back [Ctrl+[ ]">Back</button>
+      </div>
     </div>
   `;
 }
@@ -252,11 +268,25 @@ function _attachListeners() {
 
   // Font size slider
   const fontsizeSlider = document.getElementById('fontsize-slider');
-  fontsizeSlider.value = currentStyle.fontSize;
+  fontsizeSlider.value = currentStyle.fontSize || DEFAULT_STYLE.fontSize;
   fontsizeSlider.addEventListener('input', (e) => {
     currentStyle.fontSize = parseInt(e.target.value, 10);
     document.getElementById('fontsize-val').textContent = `${currentStyle.fontSize}px`;
     _emit({ fontSize: currentStyle.fontSize });
+  });
+
+  // Action & Layer buttons
+  document.getElementById('btn-act-duplicate')?.addEventListener('click', () => {
+    if (onPanelActionCb) onPanelActionCb('duplicate');
+  });
+  document.getElementById('btn-act-delete')?.addEventListener('click', () => {
+    if (onPanelActionCb) onPanelActionCb('delete');
+  });
+  document.getElementById('btn-act-front')?.addEventListener('click', () => {
+    if (onPanelActionCb) onPanelActionCb('front');
+  });
+  document.getElementById('btn-act-back')?.addEventListener('click', () => {
+    if (onPanelActionCb) onPanelActionCb('back');
   });
 }
 

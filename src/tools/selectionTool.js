@@ -13,7 +13,10 @@
 
 import Konva from 'konva';
 import { getStage, getSceneLayer, getTransformerLayer, screenToStage } from '../stage.js';
-import { updateElement, getElements, snapshot, removeElement } from '../scene.js';
+import {
+  updateElement, getElements, snapshot, removeElement,
+  addElement, generateId, bringToFront, sendToBack, bringForward, sendBackward,
+} from '../scene.js';
 import { push as historyPush } from '../history.js';
 import { computeSnap, clearGuides } from '../snapping.js';
 import { openTextEditForElement } from './textTool.js';
@@ -79,8 +82,17 @@ export function activateSelectionTool(onRenderNeeded) {
       if (!node.hasName('element')) return;
 
       const id = node.id();
+      const elements = getElements();
+      const clickedEl = elements.find((item) => item.id === id);
 
-      if (e.evt.shiftKey) {
+      if (clickedEl && clickedEl.groupId) {
+        const groupMembers = elements.filter((item) => item.groupId === clickedEl.groupId).map((item) => item.id);
+        if (e.evt.shiftKey) {
+          selectedIds = Array.from(new Set([...selectedIds, ...groupMembers]));
+        } else {
+          selectedIds = groupMembers;
+        }
+      } else if (e.evt.shiftKey) {
         // Multi-select: toggle this element in/out of selection
         if (selectedIds.includes(id)) {
           selectedIds = selectedIds.filter((i) => i !== id);
@@ -355,5 +367,84 @@ export function selectElement(id) {
   selectedIds = [id];
   _applyTransformer();
   notifySelectionChange();
+}
+
+/** Duplicate selected elements offset by 20px */
+export function duplicateSelected(onRenderNeeded) {
+  if (selectedIds.length === 0) return;
+  historyPush(snapshot());
+  const elements = getElements().filter((e) => selectedIds.includes(e.id));
+  const newIds = [];
+  elements.forEach((el) => {
+    const clone = JSON.parse(JSON.stringify(el));
+    clone.id = generateId();
+    clone.x += 20;
+    clone.y += 20;
+    addElement(clone);
+    newIds.push(clone.id);
+  });
+  if (onRenderNeeded) onRenderNeeded();
+  selectedIds = newIds;
+  _applyTransformer();
+  notifySelectionChange();
+}
+
+/** Group currently selected elements */
+export function groupSelected(onRenderNeeded) {
+  if (selectedIds.length < 2) return;
+  historyPush(snapshot());
+  const groupId = `grp_${Date.now()}`;
+  selectedIds.forEach((id) => {
+    updateElement(id, { groupId });
+  });
+  if (onRenderNeeded) onRenderNeeded();
+  _applyTransformer();
+}
+
+/** Ungroup currently selected elements */
+export function ungroupSelected(onRenderNeeded) {
+  if (selectedIds.length === 0) return;
+  historyPush(snapshot());
+  selectedIds.forEach((id) => {
+    updateElement(id, { groupId: null });
+  });
+  if (onRenderNeeded) onRenderNeeded();
+  _applyTransformer();
+}
+
+/** Layer ordering: Bring to Front */
+export function moveSelectedFront(onRenderNeeded) {
+  if (selectedIds.length === 0) return;
+  historyPush(snapshot());
+  bringToFront(selectedIds);
+  if (onRenderNeeded) onRenderNeeded();
+  _reapplyAfterRender();
+}
+
+/** Layer ordering: Send to Back */
+export function moveSelectedBack(onRenderNeeded) {
+  if (selectedIds.length === 0) return;
+  historyPush(snapshot());
+  sendToBack(selectedIds);
+  if (onRenderNeeded) onRenderNeeded();
+  _reapplyAfterRender();
+}
+
+/** Layer ordering: Bring Forward */
+export function moveSelectedForward(onRenderNeeded) {
+  if (selectedIds.length === 0) return;
+  historyPush(snapshot());
+  bringForward(selectedIds);
+  if (onRenderNeeded) onRenderNeeded();
+  _reapplyAfterRender();
+}
+
+/** Layer ordering: Send Backward */
+export function moveSelectedBackward(onRenderNeeded) {
+  if (selectedIds.length === 0) return;
+  historyPush(snapshot());
+  sendBackward(selectedIds);
+  if (onRenderNeeded) onRenderNeeded();
+  _reapplyAfterRender();
 }
 

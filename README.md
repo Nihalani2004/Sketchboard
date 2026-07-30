@@ -28,15 +28,19 @@
 ## Features
 
 ### 🔷 Shape Tools
-Rectangle, Ellipse, Arrow, Line — click-drag to draw. Hold **Shift** to constrain to square/circle/15° increments.
+Rectangle, Ellipse, Diamond (flowchart decision), Arrow, Line — click-drag to draw. Hold **Shift** to constrain to square/circle/15° increments.
 
-### ✍️ Freehand Pen
-Natural, pressure-variable strokes powered by `perfect-freehand`. Not jagged polylines.
+### ✍️ Freehand Pen & 🧹 Eraser
+- **Pen**: Natural, pressure-variable strokes powered by `perfect-freehand` with interior background color filling.
+- **Eraser**: Drag across canvas elements to erase them instantly.
 
 ### 🔤 Text Tool
 Click anywhere to place a text label. An inline HTML `<textarea>` opens at the exact canvas position. Blur or press **Escape** to commit. **Double-click** a text label to re-edit it.
 
-### 🎨 Style Panel
+### 🏁 Canvas Grid Background
+Toggle between **Dots Grid**, **Mesh Grid**, and **Clean Canvas** background modes via the grid button in the bottom-right zoom bar.
+
+### 🎨 Style Panel & Quick Actions
 - **Stroke color** — 8 swatches + custom color picker
 - **Fill color** — transparent + 7 swatches + custom
 - **Fill style** — Solid (default) / Hachure / Cross-hatch
@@ -44,18 +48,18 @@ Click anywhere to place a text label. An inline HTML `<textarea>` opens at the e
 - **Stroke style** — Solid / Dashed / Dotted
 - **Roughness** — Clean / Medium / Rough presets + fine-tune slider (0–4)
 - **Opacity** — 0–100%
-- **Font size** — shown only for text elements
+- **Quick actions** — Duplicate, Delete, Bring to Front, Send to Back buttons
 
-### 🖱️ Selection & Editing
+### 🖱️ Selection & Grouping
 - **Click** any shape to select it (shows resize/rotate handles)
-- **Click again** to toggle-deselect (clicking a selected shape toggles selection off)
+- **Click again** to toggle-deselect
 - **Shift+Click** for multi-select
 - **Drag** selected shapes to move them anywhere on the canvas
+- **Alt + Drag** to duplicate/clone elements on the fly
+- **Group / Ungroup (`Ctrl+G` / `Ctrl+Shift+G`)** — group multiple shapes into unified objects
+- **Layer Z-Index (`Ctrl+]` / `Ctrl+[`)** — reorder shapes forward or backward
 - **Arrow keys** nudge selected shapes by 1px (**Shift+Arrow** = 10px)
-- **Auto-select after draw** — drawing any shape automatically switches to Select tool and selects the shape for instant styling
-- **Hover cursor** — hover over shapes in Select mode for interactive pointer cursor feedback
 - **Rubber-band** drag on empty canvas to marquee-select multiple shapes
-- **Style panel** updates apply live to selected shapes (change fill color, stroke, roughness, etc. after drawing)
 
 ### ⚡ Laser Pointer
 Renders a glowing, fading red trail **only while the left mouse button is held**. Disappears instantly on release. Never appears in exports.
@@ -66,12 +70,13 @@ While dragging, the app computes snap targets (edges and centers of other elemen
 ### ↩️ Undo / Redo
 Full undo/redo via **Ctrl+Z** / **Ctrl+Shift+Z** (or Cmd on Mac). Snapshots are taken on every committed action.
 
-### 📤 Export / Import
+### 📤 Export / Import & Clipboard
 | Action | Output |
 |---|---|
 | **Export JSON** | `.json` file with all elements + app state. Re-importable. |
 | **Import JSON** | File picker → parse → replace scene → fit view. |
 | **Export PNG** | PNG cropped tightly to content, no UI chrome, 2× pixel ratio. |
+| **Copy PNG** | Copy cropped diagram image directly to system clipboard. |
 
 ### 🌗 Dark Mode
 Toggle via the toolbar moon/sun button. Respects `prefers-color-scheme` on first load.
@@ -79,7 +84,7 @@ Toggle via the toolbar moon/sun button. Respects `prefers-color-scheme` on first
 ### 🔭 Pan & Zoom
 - **Scroll wheel / Trackpad** — two-finger trackpad pan (without Ctrl) or zoom centred on cursor (with Ctrl)
 - **Middle-mouse drag** or **Spacebar + drag** — pan canvas
-- **Zoom controls** (bottom-right) — zoom in/out, reset, fit-to-content
+- **Zoom controls** (bottom-right) — grid toggle, zoom in/out, reset, fit-to-content
 - Keyboard shortcut: **F** — fit view to content
 
 ---
@@ -90,16 +95,24 @@ Toggle via the toolbar moon/sun button. Respects `prefers-color-scheme` on first
 |---|---|
 | `V` | Select tool |
 | `R` | Rectangle |
-| `E` | Ellipse |
+| `O` | Ellipse |
+| `D` | Diamond |
 | `A` | Arrow |
 | `L` | Line |
 | `P` | Pen (freehand) |
+| `E` | Eraser |
 | `T` | Text |
 | `Z` | Laser pointer |
 | `H` | Hand (pan) |
 | `F` | Fit view |
 | `Escape` | Back to Select |
 | `Delete` / `Backspace` | Delete selected |
+| `Ctrl+D` | Duplicate selected |
+| `Ctrl+G` | Group selected |
+| `Ctrl+Shift+G` | Ungroup selected |
+| `Ctrl+]` | Bring to Front |
+| `Ctrl+[` | Send to Back |
+| `Alt + Drag` | Clone element |
 | `↑ ↓ ← →` | Nudge selected shapes 1px |
 | `Shift + ↑ ↓ ← →` | Nudge selected shapes 10px |
 | `Ctrl+Z` | Undo |

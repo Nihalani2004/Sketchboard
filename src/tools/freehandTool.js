@@ -115,7 +115,12 @@ export function activateFreehandTool(onCommit) {
     }
     tLayer.batchDraw();
 
-    if (currentPoints.length < 3) { currentPoints = []; return; }
+    if (currentPoints.length === 0) return;
+
+    if (currentPoints.length === 1) {
+      const [x, y, p] = currentPoints[0];
+      currentPoints.push([x + 0.5, y + 0.5, p]);
+    }
 
     // Compute bounding box of raw points
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;

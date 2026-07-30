@@ -9,13 +9,19 @@ import Konva from 'konva';
  * @param {object} el - scene element with type === 'text'
  */
 export function createTextShape(el) {
+  const isDark = document.documentElement.classList.contains('dark');
+  let color = el.strokeColor || '#1e1e1e';
+  if (isDark && (color === '#1e1e1e' || color === '#000000' || color === '#000')) {
+    color = '#e8e8e8';
+  }
+
   const node = new Konva.Text({
     x: el.x,
     y: el.y,
     text: el.text || '',
     fontSize: el.fontSize || 20,
     fontFamily: el.fontFamily || "'Caveat', cursive",
-    fill: el.strokeColor || '#1e1e1e',
+    fill: color,
     opacity: el.opacity ?? 1,
     rotation: el.angle || 0,
     id: el.id,

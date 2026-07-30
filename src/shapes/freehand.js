@@ -23,7 +23,11 @@ function getPolygonPathFromPoints(points) {
  * Build a Path2D from the stroke output for efficient canvas rendering.
  */
 function getSvgPathFromStroke(stroke) {
-  if (!stroke || stroke.length < 4) return '';
+  if (!stroke || stroke.length === 0) return '';
+  if (stroke.length < 4) {
+    const pts = stroke.map(([x, y]) => `${x},${y}`).join(' L ');
+    return `M ${pts} Z`;
+  }
   const d = [];
   const [first, ...rest] = stroke;
   d.push(`M ${first[0]},${first[1]}`);
@@ -59,7 +63,7 @@ export function createFreehandShape(el) {
     sceneFunc(ctx, shape) {
       const attrs = shape.attrs;
       const rawPoints = attrs.elementPoints || [];
-      if (rawPoints.length < 2) return;
+      if (rawPoints.length < 1) return;
 
       // 1. Fill background if set and not transparent
       if (attrs.backgroundColor && attrs.backgroundColor !== 'transparent' && rawPoints.length >= 3) {
@@ -94,8 +98,14 @@ export function createFreehandShape(el) {
       const pathStr = getSvgPathFromStroke(stroke);
       if (!pathStr) return;
 
+      const isDark = document.documentElement.classList.contains('dark');
+      let strokeColor = attrs.strokeColor || '#1e1e1e';
+      if (isDark && (strokeColor === '#1e1e1e' || strokeColor === '#000000' || strokeColor === '#000')) {
+        strokeColor = '#e8e8e8';
+      }
+
       const path2d = new Path2D(pathStr);
-      ctx._context.fillStyle = attrs.strokeColor || '#1e1e1e';
+      ctx._context.fillStyle = strokeColor;
       ctx._context.fill(path2d);
     },
     hitFunc(ctx, shape) {

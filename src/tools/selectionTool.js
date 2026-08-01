@@ -341,14 +341,30 @@ function _applyTransformer() {
 
 export function clearSelection() {
   selectedIds = [];
-  if (transformer) transformer.nodes([]);
+
+  // Clear transformer nodes
+  if (transformer) {
+    transformer.nodes([]);
+  }
+
+  // Destroy ALL children on the transformer layer (kills stuck selection boxes,
+  // rubber-band rects, and any other visual artifacts)
+  const tLayer = getTransformerLayer();
+  if (tLayer) {
+    tLayer.destroyChildren();
+    // Re-add the transformer if it still exists (selection tool is active)
+    if (transformer && !transformer.isDestroyed && !transformer.isDestroyed()) {
+      tLayer.add(transformer);
+    }
+    tLayer.batchDraw();
+  }
 
   // Disable all dragging
   const sceneLayer = getSceneLayer();
   if (sceneLayer) {
     sceneLayer.getChildren((n) => n.hasName('element')).forEach((n) => n.draggable(false));
   }
-  getTransformerLayer().batchDraw();
+
   notifySelectionChange();
 }
 

@@ -2,7 +2,15 @@
 
 > A browser-based, hand-drawn diagramming app — inspired by Excalidraw, built from scratch with vanilla JavaScript.
 
-![Sketchboard Screenshot](./screenshot.png)
+---
+
+## 📸 Preview
+
+<p align="center">
+  <img src="./public/preview.png" alt="Sketchboard App Preview" width="900" />
+</p>
+
+<p align="center"><em>Draw shapes, sketch freely, and export diagrams — all with a hand-drawn aesthetic.</em></p>
 
 ---
 
@@ -123,27 +131,91 @@ Toggle via the toolbar moon/sun button. Respects `prefers-color-scheme` on first
 
 ## Architecture
 
+### 🏗️ System Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph UI["🖥️ UI Layer"]
+        TB["Toolbar"]
+        SP["Style Panel"]
+        ZC["Zoom Controls"]
+        AB["Action Bar"]
+    end
+
+    subgraph MAIN["⚡ Orchestrator"]
+        MJS["main.js\nBootstrap & Wiring"]
+    end
+
+    subgraph CORE["🧠 Core Engine"]
+        SCENE["scene.js\nSource of Truth\n(element array)"]
+        HISTORY["history.js\nUndo / Redo Stack"]
+        STAGE["stage.js\nKonva.Stage\nLayers / Pan / Zoom"]
+        SNAP["snapping.js\nEdge & Center Snapping"]
+        EXPORT["export.js\nJSON / PNG / Clipboard"]
+    end
+
+    subgraph SHAPES["🎨 Shape Renderers"]
+        SK["sketchyShape.js\nrough.js Factory\nRect / Ellipse / Diamond\nLine / Arrow"]
+        FH["freehand.js\nperfect-freehand\nPen Strokes"]
+        TX["text.js\nKonva.Text\nRenderer"]
+    end
+
+    subgraph TOOLS["🛠️ Interactive Tools"]
+        DT["drawTool.js\nShape Drawing"]
+        FHT["freehandTool.js\nPen Capture"]
+        TT["textTool.js\nInline Editor"]
+        ST["selectionTool.js\nTransformer\nMulti-Select"]
+        LT["laserTool.js\nLaser Pointer"]
+        ET["eraserTool.js\nDrag-to-Erase"]
+    end
+
+    UI --> MJS
+    MJS --> CORE
+    MJS --> TOOLS
+    TOOLS --> SCENE
+    TOOLS --> STAGE
+    TOOLS --> SHAPES
+    SCENE --> HISTORY
+    SCENE --> EXPORT
+    SHAPES --> STAGE
+    SNAP --> STAGE
+
+    style UI fill:#e8f0fe,stroke:#4285f4,stroke-width:2px
+    style CORE fill:#fef7e0,stroke:#f9ab00,stroke-width:2px
+    style SHAPES fill:#e6f4ea,stroke:#34a853,stroke-width:2px
+    style TOOLS fill:#fce8e6,stroke:#ea4335,stroke-width:2px
+    style MAIN fill:#f3e8fd,stroke:#7c3aed,stroke-width:2px
+```
+
+### 📁 Project Structure
+
 ```
 sketchboard/
 ├── index.html              # App shell
-├── style.css               # Tailwind v4 + CSS custom properties
+├── style.css               # CSS custom properties + dark mode
 ├── main.js                 # Bootstrap / orchestrator
+├── public/
+│   └── favicon.svg         # App icon (blue camera/lens)
 └── src/
     ├── scene.js            # SOURCE OF TRUTH — plain-JS element array
     ├── history.js          # Undo/redo stack (snapshots of scene.js)
     ├── stage.js            # Konva.Stage, layers, pan, zoom
     ├── snapping.js         # Snap-to-edge/center + guide lines
-    ├── export.js           # exportJSON, importJSON, exportPNG
+    ├── export.js           # exportJSON, importJSON, exportPNG, copyPNG
     ├── shapes/
-    │   ├── sketchyShape.js # rough.js factory for rect/ellipse/line/arrow
+    │   ├── sketchyShape.js # rough.js factory for rect/ellipse/diamond/line/arrow
     │   ├── freehand.js     # perfect-freehand → filled Konva.Shape
     │   └── text.js         # Konva.Text renderer
-    └── tools/
-        ├── drawTool.js     # Generic draw flow (rect/ellipse/line/arrow)
-        ├── freehandTool.js # Freehand capture + commit
-        ├── textTool.js     # Inline overlay text editing
-        ├── selectionTool.js# Konva.Transformer + rubber-band select
-        └── laserTool.js    # Button-gated laser pointer
+    ├── tools/
+    │   ├── drawTool.js     # Generic draw flow (rect/ellipse/diamond/line/arrow)
+    │   ├── freehandTool.js # Freehand capture + commit
+    │   ├── textTool.js     # Inline overlay text editing
+    │   ├── selectionTool.js# Transformer + rubber-band + group/layer actions
+    │   ├── eraserTool.js   # Drag-to-erase canvas elements
+    │   └── laserTool.js    # Button-gated laser pointer
+    └── ui/
+        ├── toolbar.js      # Floating toolbar with Lucide icons
+        └── stylePanel.js   # Color/stroke/fill/roughness controls
 ```
 
 ### Data Model (scene element)

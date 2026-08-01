@@ -152,9 +152,13 @@ initToolbar(isDark, (nowDark) => {
 onToolChange((toolId) => switchTool(toolId));
 onClear(() => {
   historyPush(snapshot());
-  setElements([]);
-  render();
-  clearSelection();
+  clearSelection();           // Clear selection FIRST (destroys transformer layer artifacts)
+  setElements([]);            // Empty the scene data
+  render();                   // Rebuild the (now empty) scene layer
+  // Safety: destroy any leftover transformer layer children
+  const tLayer = getTransformerLayer();
+  tLayer.destroyChildren();
+  tLayer.batchDraw();
   hidePanel();
 });
 

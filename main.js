@@ -46,10 +46,14 @@ import { initCanvasControls } from './src/ui/canvasControls.js';
 import { initPresentation } from './src/ui/presentation.js';
 import { createDraftStore } from './src/persistence.js';
 import { initDraftStatus } from './src/ui/draftStatus.js';
+import { initMonitoring, reportError } from './src/monitoring.js';
+import { initUserNotifier } from './src/ui/notifications.js';
 
 // ── Stage init ──────────────────────────────────────────────────────────────
 const stage = initStage('canvas-container');
 const sceneLayer = getSceneLayer();
+const userNotifier = initUserNotifier();
+initMonitoring({ onUserError: (message) => userNotifier.show(message) });
 const draftStatus = initDraftStatus();
 const draftStore = createDraftStore({ onStatus: (status) => draftStatus.show(status) });
 const rulers = initRulers({
@@ -95,6 +99,8 @@ function render() {
       if (node) sceneLayer.add(node);
     } catch (err) {
       console.warn('Sketchboard: failed to render element', el.id, err);
+      reportError(err, { area: 'render', elementType: el.type });
+      userNotifier.show('A part of the drawing could not be displayed. Your remaining work is safe.');
     }
   });
 

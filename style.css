@@ -576,6 +576,31 @@ body.presentation-mode #canvas-container { cursor: default !important; }
   border-color: #f59e0b;
 }
 
+#user-notification {
+  position: absolute;
+  left: 50%;
+  top: 76px;
+  z-index: 350;
+  max-width: min(540px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid #ef4444;
+  border-radius: 8px;
+  background: var(--sb-panel-bg);
+  background: color-mix(in srgb, var(--sb-panel-bg) 94%, #ef4444);
+  box-shadow: var(--sb-panel-shadow);
+  color: var(--sb-text-primary);
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+#user-notification.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 /* ─── Selection box (rubber-band) ────────────────────────────────────────── */
 #selection-rect {
   position: absolute;

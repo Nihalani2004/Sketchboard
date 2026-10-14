@@ -6,6 +6,7 @@
 import { serialize, deserialize, getElements, snapshot } from './scene.js';
 import { getStage, getSceneLayer, getTransformerLayer, getLaserLayer } from './stage.js';
 import { push as historyPush } from './history.js';
+import { reportError } from './monitoring.js';
 
 const SUPPORTED_ELEMENT_TYPES = new Set([
   'rectangle', 'ellipse', 'diamond', 'line', 'arrow', 'freedraw', 'text',
@@ -254,6 +255,7 @@ export function exportPNG() {
     const dataUrl = createCroppedPNG(elements);
     download(dataUrl, `sketchboard-${Date.now()}.png`, 'dataURL');
   } catch (err) {
+    reportError(err, { area: 'png-export' });
     alert(`Failed to export PNG: ${err.message}`);
   }
 }

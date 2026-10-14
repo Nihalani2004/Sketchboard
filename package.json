@@ -20,6 +20,7 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
+    "@sentry/browser": "^11.7.0",
     "konva": "^10.3.0",
     "lucide": "^1.25.0",
     "perfect-freehand": "^1.2.3",

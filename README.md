@@ -94,6 +94,9 @@ Full undo/redo via **Ctrl+Z** / **Ctrl+Shift+Z** (or Cmd on Mac). Snapshots are 
 ### 💾 Local Draft Recovery
 Sketchboard automatically stores a recent draft in the browser on the device you are using. A valid draft is restored after a refresh or browser restart. Local storage can be unavailable in private browsing or when browser storage is disabled, so export JSON for portable, long-term backups.
 
+### 🛡️ Production Error Monitoring
+Unexpected production errors can be sent to Sentry only after `VITE_SENTRY_DSN` is configured. Monitoring is disabled by default, does not send default PII, and avoids document contents in reported context. Copy `.env.example` to `.env.local` for local configuration; add the same variables in Vercel's Production environment before deployment.
+
 ### 🌗 Dark Mode
 Toggle via the toolbar moon/sun button. Respects `prefers-color-scheme` on first load.
 

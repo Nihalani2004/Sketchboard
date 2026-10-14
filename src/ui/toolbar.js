@@ -50,7 +50,8 @@ export function setActiveTool(id) {
 
 export function initToolbar(isDark, onThemeToggle) {
   const toolbar = document.getElementById('toolbar');
-  toolbar.innerHTML = '';
+  toolbar.classList.remove('is-ready');
+  const toolbarContent = document.createDocumentFragment();
 
   TOOLS.forEach((tool) => {
     const btn = document.createElement('button');
@@ -70,20 +71,20 @@ export function initToolbar(isDark, onThemeToggle) {
       _updateActiveState();
       if (onToolChangeCb) onToolChangeCb(activeTool);
     });
-    toolbar.appendChild(btn);
+    toolbarContent.appendChild(btn);
 
     // Divider before pan
     if (tool.id === 'laser') {
       const div = document.createElement('div');
       div.className = 'toolbar-divider';
-      toolbar.appendChild(div);
+      toolbarContent.appendChild(div);
     }
   });
 
   // Divider before utilities
   const div2 = document.createElement('div');
   div2.className = 'toolbar-divider';
-  toolbar.appendChild(div2);
+  toolbarContent.appendChild(div2);
 
   // Theme toggle
   const themeBtn = document.createElement('button');
@@ -98,7 +99,7 @@ export function initToolbar(isDark, onThemeToggle) {
     createIcons({ icons: { Sun, Moon }, nameAttr: 'data-lucide', attrs: { 'stroke-width': '1.8' }, root: themeBtn });
     if (onThemeToggle) onThemeToggle(nowDark);
   });
-  toolbar.appendChild(themeBtn);
+  toolbarContent.appendChild(themeBtn);
 
   // Clear canvas
   const clearBtn = document.createElement('button');
@@ -112,7 +113,11 @@ export function initToolbar(isDark, onThemeToggle) {
       if (onClearCb) onClearCb();
     }
   });
-  toolbar.appendChild(clearBtn);
+  toolbarContent.appendChild(clearBtn);
+
+  // Insert all controls at once so a centered toolbar never appears to slide
+  // while its width is growing during startup.
+  toolbar.replaceChildren(toolbarContent);
 
   // Materialise all icons
   createIcons({
@@ -126,6 +131,7 @@ export function initToolbar(isDark, onThemeToggle) {
 
   _updateActiveState();
   _setupKeyboardShortcuts();
+  toolbar.classList.add('is-ready');
 }
 
 function _updateActiveState() {

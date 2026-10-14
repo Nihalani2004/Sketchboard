@@ -182,6 +182,11 @@ body.presentation-mode #canvas-container { cursor: default !important; }
   gap: 2px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  visibility: hidden;
+}
+
+#toolbar.is-ready {
+  visibility: visible;
 }
 
 .toolbar-btn {
@@ -622,15 +627,6 @@ body.presentation-mode #canvas-container { cursor: default !important; }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes toolbarFadeIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
-#toolbar {
-  animation: toolbarFadeIn 0.3s ease-out;
 }
 
 #style-panel, #action-bar, #zoom-controls {

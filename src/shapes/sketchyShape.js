@@ -74,6 +74,8 @@ function applyStyleAttrs(shape, el) {
     seed: el.seed,
     elementId: el.id,
     elementType: el.type,
+    flipX: el.flipX || false,
+    flipY: el.flipY || false,
   });
 }
 
@@ -186,17 +188,24 @@ export function createSketchyArrow(el) {
       const opts = getRoughOptions(shape.attrs);
       delete opts.fill;
 
-      rc.line(0, 0, w, h, opts);
+      // Elements use normalized (positive) bounds. Flip flags identify which
+      // corner is the drag start so the arrowhead stays at the actual endpoint.
+      const startX = shape.attrs.flipX ? w : 0;
+      const startY = shape.attrs.flipY ? h : 0;
+      const endX = shape.attrs.flipX ? 0 : w;
+      const endY = shape.attrs.flipY ? 0 : h;
 
-      const angle = Math.atan2(h, w);
+      rc.line(startX, startY, endX, endY, opts);
+
+      const angle = Math.atan2(endY - startY, endX - startX);
       const headLen = Math.max(12, (shape.attrs.strokeWidth || 2) * 5);
       const headAngle = Math.PI / 6;
-      const ax1 = w - headLen * Math.cos(angle - headAngle);
-      const ay1 = h - headLen * Math.sin(angle - headAngle);
-      const ax2 = w - headLen * Math.cos(angle + headAngle);
-      const ay2 = h - headLen * Math.sin(angle + headAngle);
+      const ax1 = endX - headLen * Math.cos(angle - headAngle);
+      const ay1 = endY - headLen * Math.sin(angle - headAngle);
+      const ax2 = endX - headLen * Math.cos(angle + headAngle);
+      const ay2 = endY - headLen * Math.sin(angle + headAngle);
 
-      rc.linearPath([[ax1, ay1], [w, h], [ax2, ay2]], {
+      rc.linearPath([[ax1, ay1], [endX, endY], [ax2, ay2]], {
         ...opts,
         roughness: opts.roughness ?? 0,
       });
@@ -204,14 +213,18 @@ export function createSketchyArrow(el) {
     hitFunc(ctx, shape) {
       const w = shape.width(), h = shape.height();
       const t = Math.max(shape.attrs.strokeWidth || 2, 14);
-      const a = Math.atan2(h, w);
+      const startX = shape.attrs.flipX ? w : 0;
+      const startY = shape.attrs.flipY ? h : 0;
+      const endX = shape.attrs.flipX ? 0 : w;
+      const endY = shape.attrs.flipY ? 0 : h;
+      const a = Math.atan2(endY - startY, endX - startX);
       const nx = -Math.sin(a) * t / 2;
       const ny = Math.cos(a) * t / 2;
       ctx.beginPath();
-      ctx.moveTo(nx, ny);
-      ctx.lineTo(w + nx, h + ny);
-      ctx.lineTo(w - nx, h - ny);
-      ctx.lineTo(-nx, -ny);
+      ctx.moveTo(startX + nx, startY + ny);
+      ctx.lineTo(endX + nx, endY + ny);
+      ctx.lineTo(endX - nx, endY - ny);
+      ctx.lineTo(startX - nx, startY - ny);
       ctx.closePath();
       ctx.fillStrokeShape(shape);
     },

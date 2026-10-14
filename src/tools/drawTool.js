@@ -64,13 +64,19 @@ export function activateDrawTool(onCommit) {
       }
     }
 
-    previewShape.width(w);
-    previewShape.height(h);
+    // Keep the preview's bounds positive so Konva can calculate its hit area
+    // consistently. Arrows retain their original drag direction separately.
+    previewShape.width(Math.abs(w));
+    previewShape.height(Math.abs(h));
     previewShape.x(w < 0 ? startPos.x + w : startPos.x);
     previewShape.y(h < 0 ? startPos.y + h : startPos.y);
     if (previewShape.attrs) {
       previewShape.attrs.width = Math.abs(w);
       previewShape.attrs.height = Math.abs(h);
+      if (activeType === 'arrow') {
+        previewShape.attrs.flipX = w < 0;
+        previewShape.attrs.flipY = h < 0;
+      }
     }
     getTransformerLayer().batchDraw();
   }
@@ -127,6 +133,9 @@ export function activateDrawTool(onCommit) {
       x, y,
       width: absW,
       height: absH,
+      // The geometry remains normalized for bounds, selection, snapping and
+      // export. These flags preserve the user's drag direction for arrows.
+      ...(activeType === 'arrow' ? { flipX: w < 0, flipY: h < 0 } : {}),
       ...styleDefaults,
     });
     addElement(el);

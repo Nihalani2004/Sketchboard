@@ -87,7 +87,14 @@ function switchTool(toolId) {
 
   // Cursor
   const container = stage.container();
-  const cursors = { select: 'default', text: 'text', laser: 'none', pan: 'grab', eraser: 'crosshair' };
+  const cursors = {
+    select: 'default',
+    text: 'text',
+    laser: 'none',
+    pan: 'grab',
+    freehand: "url('/cursors/pen.svg') 6 26, crosshair",
+    eraser: "url('/cursors/eraser.svg') 6 26, crosshair",
+  };
   container.style.cursor = cursors[toolId] || 'crosshair';
 
   // Style panel visibility:

@@ -224,6 +224,7 @@ sketchboard/
   id: string,
   type: 'rectangle' | 'ellipse' | 'arrow' | 'line' | 'freedraw' | 'text',
   x: number, y: number, width: number, height: number,
+  flipX: boolean, flipY: boolean, // arrow direction within normalized bounds
   points: number[],       // for freedraw
   angle: number,
   strokeColor: string,    // default '#1e1e1e'

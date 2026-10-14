@@ -13,7 +13,7 @@ import {
   getElements, updateElement, setElements,
   snapshot, DEFAULT_STYLE, getPages, getActivePage, getActivePageId, setActivePage,
   addPage, duplicatePage, renamePage, deletePage, getCanvasSettings, updateCanvasSettings,
-  getViewport as getSavedViewport, updateViewport,
+  getViewport as getSavedViewport, updateViewport, serialize, deserialize,
 } from './src/scene.js';
 import {
   push as historyPush, undo as historyUndo, redo as historyRedo,
@@ -44,10 +44,14 @@ import {
 import { initRulers } from './src/ui/rulers.js';
 import { initCanvasControls } from './src/ui/canvasControls.js';
 import { initPresentation } from './src/ui/presentation.js';
+import { createDraftStore } from './src/persistence.js';
+import { initDraftStatus } from './src/ui/draftStatus.js';
 
 // ── Stage init ──────────────────────────────────────────────────────────────
 const stage = initStage('canvas-container');
 const sceneLayer = getSceneLayer();
+const draftStatus = initDraftStatus();
+const draftStore = createDraftStore({ onStatus: (status) => draftStatus.show(status) });
 const rulers = initRulers({
   getViewport,
   getStageSize: () => ({ width: stage.width(), height: stage.height() }),
@@ -95,6 +99,11 @@ function render() {
   });
 
   sceneLayer.batchDraw();
+  scheduleDraftSave();
+}
+
+function scheduleDraftSave() {
+  draftStore.schedule(serialize());
 }
 
 function applyCanvasSettings() {
@@ -118,6 +127,7 @@ function applyCanvasSettings() {
   rulers?.update(settings.showRulers);
   canvasControls?.updateSettings(settings);
   canvasControls?.updatePages(getPages(), getActivePageId());
+  scheduleDraftSave();
 }
 
 function zoomToSelection() {
@@ -229,7 +239,8 @@ function switchTool(toolId) {
 
 
 // ── Dark mode (default to light mode / white screen) ───────────────────────
-const savedTheme = localStorage.getItem('sketchboard_theme');
+let savedTheme = null;
+try { savedTheme = localStorage.getItem('sketchboard_theme'); } catch { /* Theme storage can be disabled. */ }
 const isDark = savedTheme === 'dark'; // Defaults to false (Light mode / white screen)
 
 if (isDark) {
@@ -240,7 +251,7 @@ if (isDark) {
 
 // ── Toolbar init ─────────────────────────────────────────────────────────────
 initToolbar(isDark, (nowDark) => {
-  localStorage.setItem('sketchboard_theme', nowDark ? 'dark' : 'light');
+  try { localStorage.setItem('sketchboard_theme', nowDark ? 'dark' : 'light'); } catch { /* Theme still works for this session. */ }
   render();
   applyCanvasSettings();
 });
@@ -506,5 +517,16 @@ window.addEventListener('keydown', (e) => {
 stage.container().addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ── Initial state ─────────────────────────────────────────────────────────────
+const restoredDraft = draftStore.restore();
+if (restoredDraft) {
+  try {
+    deserialize(restoredDraft);
+    setViewport(getSavedViewport());
+    applyCanvasSettings();
+  } catch {
+    draftStatus.show('discarded');
+  }
+}
 switchTool('select');   // starts with select, panel hidden
 render();
+window.addEventListener('pagehide', () => draftStore.flush(serialize()));

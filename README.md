@@ -91,6 +91,9 @@ Full undo/redo via **Ctrl+Z** / **Ctrl+Shift+Z** (or Cmd on Mac). Snapshots are 
 | **Export PNG** | PNG cropped tightly to content, no UI chrome, 2× pixel ratio. |
 | **Copy PNG** | Copy cropped diagram image directly to system clipboard. |
 
+### 💾 Local Draft Recovery
+Sketchboard automatically stores a recent draft in the browser on the device you are using. A valid draft is restored after a refresh or browser restart. Local storage can be unavailable in private browsing or when browser storage is disabled, so export JSON for portable, long-term backups.
+
 ### 🌗 Dark Mode
 Toggle via the toolbar moon/sun button. Respects `prefers-color-scheme` on first load.
 

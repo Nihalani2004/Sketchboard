@@ -138,7 +138,7 @@ function validateElements(elements, pageLabel) {
   });
 }
 
-function validateImportData(data) {
+export function validateImportData(data) {
   if (!data || typeof data !== 'object') throw new Error('not a Sketchboard JSON export');
   if (Array.isArray(data.elements)) {
     validateElements(data.elements, 'Page 1');

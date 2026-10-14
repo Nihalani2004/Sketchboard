@@ -152,7 +152,7 @@ html, body {
 }
 body.presentation-mode #toolbar, body.presentation-mode #style-panel, body.presentation-mode #action-bar,
 body.presentation-mode #zoom-controls, body.presentation-mode #canvas-settings, body.presentation-mode #page-controls,
-body.presentation-mode .canvas-ruler { display: none !important; }
+body.presentation-mode .canvas-ruler, body.presentation-mode #draft-status { display: none !important; }
 body.presentation-mode #canvas-container { cursor: default !important; }
 
 @media (max-width: 720px) {
@@ -546,6 +546,34 @@ body.presentation-mode #canvas-container { cursor: default !important; }
 .action-btn.danger:hover {
   background: #ef4444;
   border-color: #ef4444;
+}
+
+#draft-status {
+  position: absolute;
+  left: 50%;
+  bottom: 72px;
+  z-index: 250;
+  max-width: min(480px, calc(100vw - 32px));
+  padding: 8px 12px;
+  border: 1px solid var(--sb-panel-border);
+  border-radius: 8px;
+  background: var(--sb-panel-bg);
+  box-shadow: var(--sb-panel-shadow);
+  color: var(--sb-text-primary);
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+#draft-status.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+#draft-status[data-level='warning'] {
+  border-color: #f59e0b;
 }
 
 /* ─── Selection box (rubber-band) ────────────────────────────────────────── */

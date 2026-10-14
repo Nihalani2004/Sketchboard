@@ -101,9 +101,10 @@ function applyCanvasSettings() {
   const settings = getCanvasSettings();
   const container = stage.container();
   const viewport = getViewport();
+  const isDarkTheme = document.documentElement.classList.contains('dark');
   container.classList.add('custom-canvas');
   container.classList.remove('grid-dots', 'grid-mesh');
-  container.style.setProperty('--canvas-background', settings.background);
+  container.style.setProperty('--canvas-background', isDarkTheme ? 'var(--sb-canvas-bg)' : settings.background);
   if (settings.showGrid && settings.gridType !== 'none') {
     container.classList.add(settings.gridType === 'mesh' ? 'grid-mesh' : 'grid-dots');
     const screenSize = settings.gridSize * viewport.scale;
@@ -241,6 +242,7 @@ if (isDark) {
 initToolbar(isDark, (nowDark) => {
   localStorage.setItem('sketchboard_theme', nowDark ? 'dark' : 'light');
   render();
+  applyCanvasSettings();
 });
 onToolChange((toolId) => switchTool(toolId));
 onClear(() => {

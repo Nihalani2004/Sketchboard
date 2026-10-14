@@ -4,8 +4,13 @@
  */
 
 import { serialize, deserialize, getElements, snapshot } from './scene.js';
-import { getStage, getTransformerLayer, getLaserLayer } from './stage.js';
+import { getStage, getSceneLayer, getTransformerLayer, getLaserLayer } from './stage.js';
 import { push as historyPush } from './history.js';
+
+const SUPPORTED_ELEMENT_TYPES = new Set([
+  'rectangle', 'ellipse', 'diamond', 'line', 'arrow', 'freedraw', 'text',
+]);
+const EXPORT_PADDING = 40;
 
 /**
  * Download a file in the browser.
@@ -64,20 +69,18 @@ export function importJSON(onImport) {
   input.accept = '.json,application/json';
   input.style.display = 'none';
   document.body.appendChild(input);
+  const cleanupInput = () => {
+    if (input.isConnected) document.body.removeChild(input);
+  };
+
   input.onchange = (e) => {
     const file = e.target.files[0];
-    if (!file) { document.body.removeChild(input); return; }
+    if (!file) { cleanupInput(); return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-
-        // Validate the JSON structure
-        if (!data || !Array.isArray(data.elements)) {
-          alert('Invalid file: not a Sketchboard JSON export.');
-          document.body.removeChild(input);
-          return;
-        }
+        validateImportData(data);
 
         // Save current state so user can undo the import
         historyPush(snapshot());
@@ -88,12 +91,130 @@ export function importJSON(onImport) {
         if (onImport) onImport(data);
       } catch (err) {
         alert(`Failed to import: ${err.message}`);
+      } finally {
+        cleanupInput();
       }
-      document.body.removeChild(input);
+    };
+    reader.onerror = () => {
+      alert('Failed to read the selected file.');
+      cleanupInput();
     };
     reader.readAsText(file);
   };
+  input.addEventListener('cancel', cleanupInput, { once: true });
   input.click();
+}
+
+/** Reject malformed scene data before it can replace the current drawing. */
+function validateImportData(data) {
+  if (!data || !Array.isArray(data.elements)) {
+    throw new Error('not a Sketchboard JSON export');
+  }
+
+  data.elements.forEach((el, index) => {
+    if (!el || typeof el !== 'object') {
+      throw new Error(`element ${index + 1} is invalid`);
+    }
+    if (typeof el.id !== 'string' || !SUPPORTED_ELEMENT_TYPES.has(el.type)) {
+      throw new Error(`element ${index + 1} has an unsupported type`);
+    }
+    if (!Number.isFinite(el.x) || !Number.isFinite(el.y)) {
+      throw new Error(`element ${index + 1} has invalid coordinates`);
+    }
+    if (el.type === 'freedraw') {
+      if (!Array.isArray(el.points)) {
+        throw new Error(`freehand element ${index + 1} is missing points`);
+      }
+    } else if (!Number.isFinite(el.width) || !Number.isFinite(el.height)) {
+      throw new Error(`element ${index + 1} has invalid dimensions`);
+    }
+  });
+}
+
+/** Calculate a consistent stage-space crop rectangle for PNG export and copy. */
+function getContentBounds(elements) {
+  // Prefer rendered bounds: they include rotation, stroke thickness and the
+  // actual freehand outline rather than only the stored model dimensions.
+  const stage = getStage();
+  const renderedBounds = getSceneLayer()?.getClientRect({ relativeTo: stage });
+  if (
+    renderedBounds
+    && Number.isFinite(renderedBounds.x)
+    && Number.isFinite(renderedBounds.y)
+    && Number.isFinite(renderedBounds.width)
+    && Number.isFinite(renderedBounds.height)
+  ) {
+    return {
+      minX: renderedBounds.x,
+      minY: renderedBounds.y,
+      maxX: renderedBounds.x + renderedBounds.width,
+      maxY: renderedBounds.y + renderedBounds.height,
+    };
+  }
+
+  // Fallback for a scene that has not yet rendered.
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  elements.forEach((el) => {
+    if (el.type === 'freedraw' && Array.isArray(el.points) && el.points.length > 0) {
+      el.points.forEach((point) => {
+        if (!Array.isArray(point) || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) return;
+        const px = el.x + point[0];
+        const py = el.y + point[1];
+        minX = Math.min(minX, px);
+        minY = Math.min(minY, py);
+        maxX = Math.max(maxX, px);
+        maxY = Math.max(maxY, py);
+      });
+      return;
+    }
+
+    const width = Number.isFinite(el.width) ? el.width : 0;
+    const height = Number.isFinite(el.height) ? el.height : 0;
+    minX = Math.min(minX, el.x, el.x + width);
+    minY = Math.min(minY, el.y, el.y + height);
+    maxX = Math.max(maxX, el.x, el.x + width);
+    maxY = Math.max(maxY, el.y, el.y + height);
+  });
+
+  return Number.isFinite(minX) ? { minX, minY, maxX, maxY } : null;
+}
+
+/** Render a cropped PNG without selection, laser, or text-editor UI. */
+function createCroppedPNG(elements) {
+  const bounds = getContentBounds(elements);
+  if (!bounds) throw new Error('unable to determine diagram bounds');
+
+  const stage = getStage();
+  const trLayer = getTransformerLayer();
+  const laserLayer = getLaserLayer();
+  const textOverlay = document.getElementById('text-editor-overlay');
+  const trWasVisible = trLayer.visible();
+  const laserWasVisible = laserLayer.visible();
+  const textWasVisible = textOverlay?.classList.contains('visible');
+
+  try {
+    trLayer.visible(false);
+    laserLayer.visible(false);
+    if (textWasVisible) textOverlay.classList.remove('visible');
+    stage.batchDraw();
+
+    const scale = stage.scaleX();
+    const stagePos = stage.position();
+    return stage.toDataURL({
+      pixelRatio: 2,
+      x: bounds.minX * scale + stagePos.x - EXPORT_PADDING * scale,
+      y: bounds.minY * scale + stagePos.y - EXPORT_PADDING * scale,
+      width: (bounds.maxX - bounds.minX + EXPORT_PADDING * 2) * scale,
+      height: (bounds.maxY - bounds.minY + EXPORT_PADDING * 2) * scale,
+      mimeType: 'image/png',
+    });
+  } finally {
+    trLayer.visible(trWasVisible);
+    laserLayer.visible(laserWasVisible);
+    if (textWasVisible) textOverlay.classList.add('visible');
+    stage.batchDraw();
+  }
 }
 
 /**
@@ -107,71 +228,12 @@ export function exportPNG() {
     return;
   }
 
-  const stage = getStage();
-  const trLayer = getTransformerLayer();
-  const laserLayer = getLaserLayer();
-
-  // Hide UI layers
-  const trWasVisible = trLayer.visible();
-  const laserWasVisible = laserLayer.visible();
-  trLayer.visible(false);
-  laserLayer.visible(false);
-
-  // Also hide text editor overlay if open
-  const textOverlay = document.getElementById('text-editor-overlay');
-  const textWasVisible = textOverlay && textOverlay.classList.contains('visible');
-  if (textWasVisible) textOverlay.classList.remove('visible');
-
-  // Calculate bounding box of all elements
-  const PADDING = 40;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  elements.forEach((el) => {
-    if (el.type === 'freedraw' && el.points && el.points.length > 0) {
-      const pts = el.points;
-      for (let i = 0; i < pts.length; i++) {
-        const p = Array.isArray(pts[i]) ? pts[i] : null;
-        if (!p) continue;
-        const px = el.x + p[0];
-        const py = el.y + p[1];
-        minX = Math.min(minX, px);
-        minY = Math.min(minY, py);
-        maxX = Math.max(maxX, px);
-        maxY = Math.max(maxY, py);
-      }
-    } else {
-      minX = Math.min(minX, el.x);
-      minY = Math.min(minY, el.y);
-      maxX = Math.max(maxX, el.x + Math.abs(el.width || 100));
-      maxY = Math.max(maxY, el.y + Math.abs(el.height || 30));
-    }
-  });
-
-  const scale = stage.scaleX();
-  const stagePos = stage.position();
-
-  // Convert stage-space bounding box to screen-space crop
-  const screenX = minX * scale + stagePos.x - PADDING * scale;
-  const screenY = minY * scale + stagePos.y - PADDING * scale;
-  const screenW = (maxX - minX) * scale + PADDING * 2 * scale;
-  const screenH = (maxY - minY) * scale + PADDING * 2 * scale;
-
-  stage.batchDraw();
-
-  const dataUrl = stage.toDataURL({
-    pixelRatio: 2,
-    x: screenX,
-    y: screenY,
-    width: screenW,
-    height: screenH,
-    mimeType: 'image/png',
-  });
-
-  // Restore layers
-  trLayer.visible(trWasVisible);
-  laserLayer.visible(laserWasVisible);
-  if (textWasVisible) textOverlay.classList.add('visible');
-
-  download(dataUrl, `sketchboard-${Date.now()}.png`, 'dataURL');
+  try {
+    const dataUrl = createCroppedPNG(elements);
+    download(dataUrl, `sketchboard-${Date.now()}.png`, 'dataURL');
+  } catch (err) {
+    alert(`Failed to export PNG: ${err.message}`);
+  }
 }
 
 /**
@@ -184,52 +246,11 @@ export async function copyPNGToClipboard() {
     return;
   }
 
-  const stage = getStage();
-  const trLayer = getTransformerLayer();
-  const laserLayer = getLaserLayer();
-
-  const trWasVisible = trLayer.visible();
-  const laserWasVisible = laserLayer.visible();
-  trLayer.visible(false);
-  laserLayer.visible(false);
-
-  const textOverlay = document.getElementById('text-editor-overlay');
-  const textWasVisible = textOverlay && textOverlay.classList.contains('visible');
-  if (textWasVisible) textOverlay.classList.remove('visible');
-
-  const PADDING = 40;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  elements.forEach((el) => {
-    minX = Math.min(minX, el.x);
-    minY = Math.min(minY, el.y);
-    maxX = Math.max(maxX, el.x + Math.abs(el.width || 100));
-    maxY = Math.max(maxY, el.y + Math.abs(el.height || 30));
-  });
-
-  const scale = stage.scaleX();
-  const stagePos = stage.position();
-
-  const screenX = minX * scale + stagePos.x - PADDING * scale;
-  const screenY = minY * scale + stagePos.y - PADDING * scale;
-  const screenW = (maxX - minX) * scale + PADDING * 2 * scale;
-  const screenH = (maxY - minY) * scale + PADDING * 2 * scale;
-
-  stage.batchDraw();
-
-  const dataUrl = stage.toDataURL({
-    pixelRatio: 2,
-    x: screenX,
-    y: screenY,
-    width: screenW,
-    height: screenH,
-    mimeType: 'image/png',
-  });
-
-  trLayer.visible(trWasVisible);
-  laserLayer.visible(laserWasVisible);
-  if (textWasVisible) textOverlay.classList.add('visible');
-
   try {
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+      throw new Error('image clipboard access is not supported in this browser');
+    }
+    const dataUrl = createCroppedPNG(elements);
     const res = await fetch(dataUrl);
     const blob = await res.blob();
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);

@@ -3,7 +3,6 @@
  * Creates a live preview on the transformer layer; commits to scene on pointerup.
  */
 
-import Konva from 'konva';
 import { createElement, addElement, snapshot } from '../scene.js';
 import { getStage, getSceneLayer, getTransformerLayer, screenToStage } from '../stage.js';
 import { createSketchyRect, createSketchyEllipse, createSketchyLine, createSketchyArrow, createSketchyDiamond } from '../shapes/sketchyShape.js';

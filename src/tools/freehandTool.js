@@ -5,13 +5,13 @@
 import { getStroke } from 'perfect-freehand';
 import Konva from 'konva';
 import { createElement, addElement, snapshot } from '../scene.js';
-import { getStage, getSceneLayer, getTransformerLayer, screenToStage, getScale } from '../stage.js';
+import { getStage, getTransformerLayer, screenToStage } from '../stage.js';
 import { push as historyPush } from '../history.js';
 
 let isDrawing = false;
 let currentPoints = [];   // [{x, y, pressure}]
 let previewShape = null;
-let styleDefaults = {};
+const styleDefaults = {};
 
 export function updateFreehandDefaults(patch) {
   Object.assign(styleDefaults, patch);

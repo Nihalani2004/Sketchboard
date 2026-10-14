@@ -38,7 +38,7 @@ const FILL_STYLES = [
   { label: 'Cross', value: 'cross-hatch' },
 ];
 
-let currentStyle = { ...DEFAULT_STYLE };
+const currentStyle = { ...DEFAULT_STYLE };
 let onChangeCb = null;
 let panelEl = null;
 

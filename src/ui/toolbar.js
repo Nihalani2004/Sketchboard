@@ -38,7 +38,6 @@ const TOOLS = [
 let activeTool = 'select';
 let onToolChangeCb = null;
 let onClearCb = null;
-let _isDark = false;
 
 export function onToolChange(cb) { onToolChangeCb = cb; }
 export function onClear(cb) { onClearCb = cb; }
@@ -50,7 +49,6 @@ export function setActiveTool(id) {
 }
 
 export function initToolbar(isDark, onThemeToggle) {
-  _isDark = isDark;
   const toolbar = document.getElementById('toolbar');
   toolbar.innerHTML = '';
 
@@ -96,7 +94,6 @@ export function initToolbar(isDark, onThemeToggle) {
   themeBtn.innerHTML = `<i data-lucide="${isDark ? 'sun' : 'moon'}" style="width:18px;height:18px;stroke-width:1.8"></i>`;
   themeBtn.addEventListener('click', () => {
     const nowDark = document.documentElement.classList.toggle('dark');
-    _isDark = nowDark;
     themeBtn.innerHTML = `<i data-lucide="${nowDark ? 'sun' : 'moon'}" style="width:18px;height:18px;stroke-width:1.8"></i>`;
     createIcons({ icons: { Sun, Moon }, nameAttr: 'data-lucide', attrs: { 'stroke-width': '1.8' }, root: themeBtn });
     if (onThemeToggle) onThemeToggle(nowDark);

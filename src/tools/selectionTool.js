@@ -27,7 +27,6 @@ let onSelectionChangeCb = null;
 let onElementUpdateCb = null;
 let isSelecting = false;
 let selStart = null;
-let _onRenderNeeded = null;
 let _arrowKeyHandler = null;
 
 export function getSelectedIds() { return [...selectedIds]; }
@@ -44,7 +43,6 @@ function notifySelectionChange() {
 
 /** Activate selection tool */
 export function activateSelectionTool(onRenderNeeded) {
-  _onRenderNeeded = onRenderNeeded;
   const stage = getStage();
   const sceneLayer = getSceneLayer();
   const tLayer = getTransformerLayer();
@@ -69,7 +67,7 @@ export function activateSelectionTool(onRenderNeeded) {
   // ── Click to select / toggle ────────────────────────────────────────────
   // Delay click registration by one frame to avoid capturing the trailing click event
   // from the pointerup/mouseup that committed a drawing.
-  let clickTimeout = setTimeout(() => {
+  const clickTimeout = setTimeout(() => {
     if (!stage) return;
     stage.on('click.selTool tap.selTool', (e) => {
       // Click on empty canvas → deselect all
@@ -124,7 +122,7 @@ export function activateSelectionTool(onRenderNeeded) {
     if (!el) return;
 
     clearSelection();
-    openTextEditForElement(el, (result) => {
+    openTextEditForElement(el, () => {
       if (onRenderNeeded) onRenderNeeded();
     });
   });
@@ -164,7 +162,7 @@ export function activateSelectionTool(onRenderNeeded) {
     tLayer.batchDraw();
   });
 
-  stage.on('mouseup.selTool', (e) => {
+  stage.on('mouseup.selTool', () => {
     if (!isSelecting || !selRectNode) { isSelecting = false; return; }
     isSelecting = false;
 
@@ -297,7 +295,7 @@ export function activateSelectionTool(onRenderNeeded) {
       stage.container().style.cursor = 'pointer';
     }
   });
-  sceneLayer.on('mouseleave.selTool', (e) => {
+  sceneLayer.on('mouseleave.selTool', () => {
     stage.container().style.cursor = 'default';
   });
 

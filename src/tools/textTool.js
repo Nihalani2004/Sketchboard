@@ -5,7 +5,7 @@
  * execute before the DOM is ready.
  */
 
-import { createElement, addElement, updateElement, removeElement, snapshot, getElements } from '../scene.js';
+import { createElement, addElement, updateElement, removeElement, snapshot } from '../scene.js';
 import { getStage, screenToStage } from '../stage.js';
 import { push as historyPush } from '../history.js';
 
@@ -14,7 +14,7 @@ function getOverlay() {
   return document.getElementById('text-editor-overlay');
 }
 
-let styleDefaults = {};
+const styleDefaults = {};
 let editingId = null;
 let onCommitCb = null;
 

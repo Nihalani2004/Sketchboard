@@ -62,34 +62,6 @@ export function activateLaserTool() {
   layer.add(laserDot);
 
   // ── Button-gated: only capture while left button held ──────────────────
-  function onPointerDown(e) {
-    if (e.evt.button !== 0) return;
-    // Prevent the event from triggering any other tool logic
-    e.cancelBubble = true;
-    isActive = true;
-    points = [];
-    const pos = screenToStage(e.evt.clientX, e.evt.clientY);
-    points.push({ x: pos.x, y: pos.y, t: Date.now() });
-    laserDot.x(pos.x);
-    laserDot.y(pos.y);
-    laserDot.visible(true);
-    layer.batchDraw();
-  }
-
-  function onPointerMove(e) {
-    if (!isActive) return;
-    const pos = screenToStage(e.evt.clientX, e.evt.clientY);
-    points.push({ x: pos.x, y: pos.y, t: Date.now() });
-    laserDot.x(pos.x);
-    laserDot.y(pos.y);
-  }
-
-  function onPointerUp() {
-    isActive = false;
-    laserDot.visible(false);
-    layer.batchDraw();
-  }
-
   // Use the native DOM container instead of Konva stage events to avoid
   // bubbling into selection/draw tool handlers
   const container = stage.container();
@@ -102,7 +74,6 @@ export function activateLaserTool() {
     if (e.button !== 0) return;
     isActive = true;
     points = [];
-    const rect = container.getBoundingClientRect();
     const pos = screenToStage(e.clientX, e.clientY);
     points.push({ x: pos.x, y: pos.y, t: Date.now() });
     laserDot.x(pos.x);

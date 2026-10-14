@@ -5,13 +5,12 @@
 
 import './style.css';
 
-import Konva from 'konva';
 import {
-  initStage, getStage, getSceneLayer, getTransformerLayer,
+  initStage, getSceneLayer, getTransformerLayer,
   onZoomChange, zoomTo, zoomToPercent, fitView, getScale,
 } from './src/stage.js';
 import {
-  getElements, addElement, updateElement, setElements,
+  getElements, updateElement, setElements,
   snapshot, DEFAULT_STYLE,
 } from './src/scene.js';
 import {
@@ -116,11 +115,11 @@ function switchTool(toolId) {
 
   if (DRAW_TOOLS.has(toolId)) {
     setDrawType(toolId, style);
-    deactivateCurrent = activateDrawTool((el) => {
+    deactivateCurrent = activateDrawTool(() => {
       render();
     });
   } else if (toolId === 'freehand') {
-    deactivateCurrent = activateFreehandTool((el) => {
+    deactivateCurrent = activateFreehandTool(() => {
       render();
     });
   } else if (toolId === 'eraser') {
@@ -128,7 +127,7 @@ function switchTool(toolId) {
       render();
     });
   } else if (toolId === 'text') {
-    deactivateCurrent = activateTextTool((result) => {
+    deactivateCurrent = activateTextTool(() => {
       render();
     });
   } else if (toolId === 'select') {
@@ -255,7 +254,7 @@ function initActionBar() {
   const importBtn = _makeActionBtn('Open', '📂', 'Import JSON file');
   importBtn.id = 'btn-import-json';
   importBtn.addEventListener('click', () => {
-    importJSON((data) => {
+    importJSON(() => {
       render();
       fitView(getElements());
     });

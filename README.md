@@ -262,6 +262,21 @@ npm run preview
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
+## Quality checks
+
+```bash
+# Check JavaScript quality and common errors
+npm run lint
+
+# Run the unit test suite once
+npm test
+
+# Run linting, tests, and a production build together
+npm run check
+```
+
+GitHub Actions runs these checks for every push and pull request.
+
 ---
 
 ## Design Notes

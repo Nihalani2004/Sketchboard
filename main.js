@@ -13,7 +13,7 @@ import {
   getElements, updateElement, setElements,
   snapshot, DEFAULT_STYLE, getPages, getActivePage, getActivePageId, setActivePage,
   addPage, duplicatePage, renamePage, deletePage, getCanvasSettings, updateCanvasSettings,
-  getViewport as getSavedViewport, updateViewport, serialize, deserialize,
+  getViewport as getSavedViewport, updateViewport,
 } from './src/scene.js';
 import {
   push as historyPush, undo as historyUndo, redo as historyRedo,
@@ -44,8 +44,6 @@ import {
 import { initRulers } from './src/ui/rulers.js';
 import { initCanvasControls } from './src/ui/canvasControls.js';
 import { initPresentation } from './src/ui/presentation.js';
-import { createDraftStore } from './src/persistence.js';
-import { initDraftStatus } from './src/ui/draftStatus.js';
 import { initMonitoring, reportError } from './src/monitoring.js';
 import { initUserNotifier } from './src/ui/notifications.js';
 
@@ -53,9 +51,7 @@ import { initUserNotifier } from './src/ui/notifications.js';
 const stage = initStage('canvas-container');
 const sceneLayer = getSceneLayer();
 const userNotifier = initUserNotifier();
-initMonitoring({ onUserError: (message) => userNotifier.show(message) });
-const draftStatus = initDraftStatus();
-const draftStore = createDraftStore({ onStatus: (status) => draftStatus.show(status) });
+initMonitoring();
 const rulers = initRulers({
   getViewport,
   getStageSize: () => ({ width: stage.width(), height: stage.height() }),
@@ -105,11 +101,6 @@ function render() {
   });
 
   sceneLayer.batchDraw();
-  scheduleDraftSave();
-}
-
-function scheduleDraftSave() {
-  draftStore.schedule(serialize());
 }
 
 function applyCanvasSettings() {
@@ -133,7 +124,6 @@ function applyCanvasSettings() {
   rulers?.update(settings.showRulers);
   canvasControls?.updateSettings(settings);
   canvasControls?.updatePages(getPages(), getActivePageId());
-  scheduleDraftSave();
 }
 
 function zoomToSelection() {
@@ -523,16 +513,8 @@ window.addEventListener('keydown', (e) => {
 stage.container().addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ── Initial state ─────────────────────────────────────────────────────────────
-const restoredDraft = draftStore.restore();
-if (restoredDraft) {
-  try {
-    deserialize(restoredDraft);
-    setViewport(getSavedViewport());
-    applyCanvasSettings();
-  } catch {
-    draftStatus.show('discarded');
-  }
-}
+// A direct visit or refresh always opens a new canvas. Remove legacy drafts
+// from older releases so prior drawings are not unexpectedly shown again.
+try { localStorage.removeItem('sketchboard:draft:v1'); } catch { /* Storage can be disabled. */ }
 switchTool('select');   // starts with select, panel hidden
 render();
-window.addEventListener('pagehide', () => draftStore.flush(serialize()));

@@ -3,22 +3,12 @@
 import * as Sentry from '@sentry/browser';
 
 let monitoringEnabled = false;
-let notifyUser = () => {};
-let lastNoticeAt = 0;
 
 function asError(reason) {
   return reason instanceof Error ? reason : new Error(typeof reason === 'string' ? reason : 'Unknown application error');
 }
 
-function showRecoveryNotice() {
-  const now = Date.now();
-  if (now - lastNoticeAt < 5000) return;
-  lastNoticeAt = now;
-  notifyUser('Something unexpected happened. Your local draft is safe; try again or refresh the page.');
-}
-
-export function initMonitoring({ onUserError = () => {} } = {}) {
-  notifyUser = onUserError;
+export function initMonitoring() {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
   if (dsn && import.meta.env.PROD) {
     Sentry.init({
@@ -27,6 +17,8 @@ export function initMonitoring({ onUserError = () => {} } = {}) {
       release: import.meta.env.VITE_APP_VERSION,
       sendDefaultPii: false,
       tracesSampleRate: 0,
+      // This is a harmless browser layout warning, not an app failure.
+      ignoreErrors: [/^ResizeObserver loop (limit exceeded|completed with undelivered notifications)$/i],
       // Interaction breadcrumbs can contain more context than this drawing app
       // needs to diagnose a stack trace, so do not transmit any of them.
       beforeBreadcrumb() {
@@ -40,14 +32,6 @@ export function initMonitoring({ onUserError = () => {} } = {}) {
     });
     monitoringEnabled = true;
   }
-
-  window.addEventListener('error', (event) => {
-    if (!event.error) return;
-    showRecoveryNotice();
-  });
-  window.addEventListener('unhandledrejection', (_event) => {
-    showRecoveryNotice();
-  });
 }
 
 export function reportError(reason, context = {}) {

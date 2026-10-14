@@ -73,7 +73,7 @@ export function activateDrawTool(onCommit) {
     if (previewShape.attrs) {
       previewShape.attrs.width = Math.abs(w);
       previewShape.attrs.height = Math.abs(h);
-      if (activeType === 'arrow') {
+      if (activeType === 'arrow' || activeType === 'line') {
         previewShape.attrs.flipX = w < 0;
         previewShape.attrs.flipY = h < 0;
       }
@@ -134,8 +134,11 @@ export function activateDrawTool(onCommit) {
       width: absW,
       height: absH,
       // The geometry remains normalized for bounds, selection, snapping and
-      // export. These flags preserve the user's drag direction for arrows.
-      ...(activeType === 'arrow' ? { flipX: w < 0, flipY: h < 0 } : {}),
+      // export. These flags preserve the user's drag direction for lines and
+      // arrows, whose visual start/end corners matter.
+      ...((activeType === 'arrow' || activeType === 'line')
+        ? { flipX: w < 0, flipY: h < 0 }
+        : {}),
       ...styleDefaults,
     });
     addElement(el);

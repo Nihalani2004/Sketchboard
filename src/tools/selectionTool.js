@@ -211,6 +211,16 @@ export function activateSelectionTool(onRenderNeeded) {
         angle: node.rotation(),
       };
 
+      // A transformer can flip an element by producing a negative scale.
+      // Preserve the start/end corner of directional elements when that occurs.
+      if (node.attrs.elementType === 'line' || node.attrs.elementType === 'arrow') {
+        const el = getElements().find((item) => item.id === id);
+        if (el) {
+          if (scaleX < 0) patch.flipX = !el.flipX;
+          if (scaleY < 0) patch.flipY = !el.flipY;
+        }
+      }
+
       // For text: scale maps to fontSize
       if (node.className === 'Text') {
         const el = getElements().find((e) => e.id === id);
@@ -463,4 +473,3 @@ export function moveSelectedBackward(onRenderNeeded) {
   if (onRenderNeeded) onRenderNeeded();
   _reapplyAfterRender();
 }
-

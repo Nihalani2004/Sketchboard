@@ -156,19 +156,28 @@ export function createSketchyLine(el) {
       const rc = rough.canvas(ctx.canvas);
       const opts = getRoughOptions(shape.attrs);
       delete opts.fill;
-      rc.line(0, 0, shape.width(), shape.height(), opts);
+      const w = shape.width(), h = shape.height();
+      const startX = shape.attrs.flipX ? w : 0;
+      const startY = shape.attrs.flipY ? h : 0;
+      const endX = shape.attrs.flipX ? 0 : w;
+      const endY = shape.attrs.flipY ? 0 : h;
+      rc.line(startX, startY, endX, endY, opts);
     },
     hitFunc(ctx, shape) {
       const w = shape.width(), h = shape.height();
       const t = Math.max(shape.attrs.strokeWidth || 2, 14);
-      const a = Math.atan2(h, w);
+      const startX = shape.attrs.flipX ? w : 0;
+      const startY = shape.attrs.flipY ? h : 0;
+      const endX = shape.attrs.flipX ? 0 : w;
+      const endY = shape.attrs.flipY ? 0 : h;
+      const a = Math.atan2(endY - startY, endX - startX);
       const nx = -Math.sin(a) * t / 2;
       const ny = Math.cos(a) * t / 2;
       ctx.beginPath();
-      ctx.moveTo(nx, ny);
-      ctx.lineTo(w + nx, h + ny);
-      ctx.lineTo(w - nx, h - ny);
-      ctx.lineTo(-nx, -ny);
+      ctx.moveTo(startX + nx, startY + ny);
+      ctx.lineTo(endX + nx, endY + ny);
+      ctx.lineTo(endX - nx, endY - ny);
+      ctx.lineTo(startX - nx, startY - ny);
       ctx.closePath();
       ctx.fillStrokeShape(shape);
     },

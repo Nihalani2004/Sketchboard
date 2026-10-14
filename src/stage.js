@@ -42,6 +42,8 @@ export function initStage(container) {
   stage.add(transformerLayer);
   stage.add(laserLayer);
 
+  stage.on('dragmove.viewport', () => _notifyViewportChange());
+
   _setupPan();
   _setupZoom();
   _setupResize();
@@ -66,6 +68,18 @@ export function getScale() {
   return stage.scaleX();
 }
 
+export function getViewport() {
+  return { x: stage.x(), y: stage.y(), scale: stage.scaleX() };
+}
+
+export function setViewport(viewport = {}) {
+  const scale = Number.isFinite(viewport.scale) ? Math.max(MIN_SCALE, Math.min(MAX_SCALE, viewport.scale)) : 1;
+  stage.scale({ x: scale, y: scale });
+  stage.position({ x: Number.isFinite(viewport.x) ? viewport.x : 0, y: Number.isFinite(viewport.y) ? viewport.y : 0 });
+  stage.batchDraw();
+  _notifyViewportChange();
+}
+
 /** Zoom to a target scale, centred on a given screen-space point */
 export function zoomTo(newScale, focalX, focalY) {
   newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
@@ -82,8 +96,7 @@ export function zoomTo(newScale, focalX, focalY) {
     y: focalY - mousePointTo.y * newScale,
   });
   stage.batchDraw();
-
-  _onZoomChange();
+  _notifyViewportChange();
 }
 
 /** Zoom to a percentage (1 = 100%) centred on the stage centre */
@@ -123,13 +136,33 @@ export function fitView(elements) {
     y: -minY * scale + padding * scale,
   });
   stage.batchDraw();
-  _onZoomChange();
+  _notifyViewportChange();
+}
+
+/** Fit a stage-space bounding box into view with padding. */
+export function zoomToBounds(bounds, padding = 80) {
+  if (!bounds || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y) || bounds.width <= 0 || bounds.height <= 0) return false;
+  const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(
+    stage.width() / (bounds.width + padding * 2),
+    stage.height() / (bounds.height + padding * 2),
+  )));
+  stage.scale({ x: scale, y: scale });
+  stage.position({ x: (stage.width() - bounds.width * scale) / 2 - bounds.x * scale, y: (stage.height() - bounds.height * scale) / 2 - bounds.y * scale });
+  stage.batchDraw();
+  _notifyViewportChange();
+  return true;
 }
 
 // ── Zoom change callback ────────────────────────────────────────────────────
 let _onZoomChangeCb = null;
 export function onZoomChange(cb) { _onZoomChangeCb = cb; }
 function _onZoomChange() { if (_onZoomChangeCb) _onZoomChangeCb(stage.scaleX()); }
+let _onViewportChangeCb = null;
+export function onViewportChange(cb) { _onViewportChangeCb = cb; }
+function _notifyViewportChange() {
+  _onZoomChange();
+  if (_onViewportChangeCb) _onViewportChangeCb(getViewport());
+}
 
 // ── Pan ─────────────────────────────────────────────────────────────────────
 function _setupPan() {
@@ -154,6 +187,7 @@ function _setupPan() {
     });
     lastPointerPos = pos;
     stage.batchDraw();
+    _notifyViewportChange();
   });
 
   stage.on('mouseup touchend mouseleave', () => {
@@ -208,6 +242,7 @@ function _setupZoom() {
         y: stage.y() + dy,
       });
       stage.batchDraw();
+      _notifyViewportChange();
     }
   });
 }
@@ -218,5 +253,6 @@ function _setupResize() {
     stage.width(window.innerWidth);
     stage.height(window.innerHeight);
     stage.batchDraw();
+    _notifyViewportChange();
   });
 }

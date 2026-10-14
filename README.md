@@ -45,8 +45,13 @@ Rectangle, Ellipse, Diamond (flowchart decision), Arrow, Line — click-drag to 
 ### 🔤 Text Tool
 Click anywhere to place a text label. An inline HTML `<textarea>` opens at the exact canvas position. Blur or press **Escape** to commit. **Double-click** a text label to re-edit it.
 
-### 🏁 Canvas Grid Background
-Toggle between **Dots Grid**, **Mesh Grid**, and **Clean Canvas** background modes via the grid button in the bottom-right zoom bar.
+### 🧭 Canvas Navigation & Pages
+- Infinite-canvas navigation with pan, cursor-centred zoom, a clickable minimap, and optional rulers.
+- **F** fits the current page; **Shift+F** fits the current selection.
+- Per-page canvas presets: **Whiteboard**, **Graph**, **Flowchart**, and **Dark**.
+- Configurable grid spacing, grid visibility, snap-to-grid, and element alignment snapping.
+- Create, rename (double-click a page tab), duplicate, delete, and switch between document pages. Each page retains its elements, viewport, and canvas settings.
+- Presentation mode hides editing controls; use **Left/Right** or **Page Up/Page Down** to navigate pages and **Esc** to exit.
 
 ### 🎨 Style Panel & Quick Actions
 - **Stroke color** — 8 swatches + custom color picker
@@ -92,8 +97,8 @@ Toggle via the toolbar moon/sun button. Respects `prefers-color-scheme` on first
 ### 🔭 Pan & Zoom
 - **Scroll wheel / Trackpad** — two-finger trackpad pan (without Ctrl) or zoom centred on cursor (with Ctrl)
 - **Middle-mouse drag** or **Spacebar + drag** — pan canvas
-- **Zoom controls** (bottom-right) — grid toggle, zoom in/out, reset, fit-to-content
-- Keyboard shortcut: **F** — fit view to content
+- **Zoom controls** (bottom-right) — zoom in/out, reset, fit-to-content
+- Keyboard shortcuts: **F** — fit view; **Shift+F** — fit selection
 
 ---
 
@@ -281,7 +286,7 @@ GitHub Actions runs these checks for every push and pull request.
 
 ## Design Notes
 
-- **Source of truth**: `scene.js`'s plain-object array is authoritative. Konva nodes are a *view* layer built from it. Undo/redo and export/import operate exclusively on scene data — never on Konva's internal state.
+- **Source of truth**: `scene.js`'s versioned document model is authoritative. The active page exposes the same plain-object element API to tools, while Konva nodes remain a view layer. Undo/redo and export/import operate exclusively on scene data — never on Konva's internal state.
 - **Fonts**: [Inter](https://fonts.google.com/specimen/Inter) for UI chrome; [Caveat](https://fonts.google.com/specimen/Caveat) for canvas text (hand-drawn feel).
 - **No backend**: Everything is in-memory. Persistence is manual via JSON export/import.
 

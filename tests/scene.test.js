@@ -3,15 +3,21 @@ import {
   DEFAULT_STYLE,
   addElement,
   bringToFront,
+  addPage,
   createElement,
   deserialize,
+  getActivePageId,
+  getCanvasSettings,
   getElements,
+  getPages,
+  setActivePage,
   sendToBack,
   setElements,
+  updateCanvasSettings,
   updateElement,
 } from '../src/scene.js';
 
-beforeEach(() => setElements([]));
+beforeEach(() => deserialize({ elements: [] }));
 
 describe('scene data', () => {
   it('creates elements with documented defaults and overrides', () => {
@@ -62,5 +68,20 @@ describe('scene data', () => {
 
   it('rejects imports without an element array', () => {
     expect(() => deserialize({ version: 1 })).toThrow('missing elements array');
+  });
+
+  it('isolates elements and canvas settings between pages', () => {
+    const firstPageId = getActivePageId();
+    addElement(createElement('rectangle'));
+    const second = addPage({ title: 'Flow' });
+    updateCanvasSettings({ gridSize: 40, snapToGrid: true });
+    addElement(createElement('ellipse'));
+
+    expect(getPages()).toHaveLength(2);
+    expect(getElements()).toHaveLength(1);
+    expect(getCanvasSettings()).toMatchObject({ gridSize: 40, snapToGrid: true });
+    setActivePage(firstPageId);
+    expect(getElements()[0].type).toBe('rectangle');
+    expect(getPages().find((page) => page.id === second.id).title).toBe('Flow');
   });
 });

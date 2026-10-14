@@ -5,6 +5,7 @@
 
 import { createElement, addElement, snapshot } from '../scene.js';
 import { getStage, getSceneLayer, getTransformerLayer, screenToStage } from '../stage.js';
+import { snapPoint } from '../snapping.js';
 import { createSketchyRect, createSketchyEllipse, createSketchyLine, createSketchyArrow, createSketchyDiamond } from '../shapes/sketchyShape.js';
 import { push as historyPush } from '../history.js';
 
@@ -33,7 +34,7 @@ export function activateDrawTool(onCommit) {
     if (e.target !== stage && e.target !== getSceneLayer()) return;
 
     isDrawing = true;
-    startPos = screenToStage(e.evt.clientX, e.evt.clientY);
+    startPos = snapPoint(screenToStage(e.evt.clientX, e.evt.clientY));
 
     // Create a tiny preview shape
     _createPreview(startPos.x, startPos.y, 1, 1);
@@ -42,7 +43,7 @@ export function activateDrawTool(onCommit) {
   function onPointerMove(e) {
     if (!isDrawing || !previewShape) return;
 
-    const pos = screenToStage(e.evt.clientX, e.evt.clientY);
+    const pos = snapPoint(screenToStage(e.evt.clientX, e.evt.clientY));
     let w = pos.x - startPos.x;
     let h = pos.y - startPos.y;
 

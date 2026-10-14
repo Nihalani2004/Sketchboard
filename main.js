@@ -7,11 +7,13 @@ import './style.css';
 
 import {
   initStage, getSceneLayer, getTransformerLayer,
-  onZoomChange, zoomTo, zoomToPercent, fitView, getScale,
+  onZoomChange, onViewportChange, zoomTo, zoomToBounds, fitView, getScale, getViewport, setViewport,
 } from './src/stage.js';
 import {
   getElements, updateElement, setElements,
-  snapshot, DEFAULT_STYLE,
+  snapshot, DEFAULT_STYLE, getPages, getActivePage, getActivePageId, setActivePage,
+  addPage, duplicatePage, renamePage, deletePage, getCanvasSettings, updateCanvasSettings,
+  getViewport as getSavedViewport, updateViewport,
 } from './src/scene.js';
 import {
   push as historyPush, undo as historyUndo, redo as historyRedo,
@@ -30,6 +32,8 @@ import {
 } from './src/tools/selectionTool.js';
 import { activateLaserTool } from './src/tools/laserTool.js';
 import { exportJSON, importJSON, exportPNG, copyPNGToClipboard } from './src/export.js';
+import { settingsForPreset } from './src/canvasSettings.js';
+import { setGridSnapping } from './src/snapping.js';
 import {
   initToolbar, onToolChange, onClear, setActiveTool, getActiveTool,
 } from './src/ui/toolbar.js';
@@ -37,10 +41,29 @@ import {
   initStylePanel, onStyleChange, getCurrentStyle,
   updatePanelStyle, showPanel, hidePanel, onPanelAction,
 } from './src/ui/stylePanel.js';
+import { initRulers } from './src/ui/rulers.js';
+import { initCanvasControls } from './src/ui/canvasControls.js';
+import { initPresentation } from './src/ui/presentation.js';
 
 // ── Stage init ──────────────────────────────────────────────────────────────
 const stage = initStage('canvas-container');
 const sceneLayer = getSceneLayer();
+const rulers = initRulers({
+  getViewport,
+  getStageSize: () => ({ width: stage.width(), height: stage.height() }),
+});
+const canvasControls = initCanvasControls({
+  onSettingsChange: (patch) => { updateCanvasSettings(patch); applyCanvasSettings(); },
+  onPreset: (name) => { updateCanvasSettings(settingsForPreset(name)); applyCanvasSettings(); },
+  onPageAction: handlePageAction,
+  onZoomSelection: zoomToSelection,
+  onPresentation: () => presentation.enter(),
+});
+const presentation = initPresentation({
+  onPrevious: () => changePage(-1),
+  onNext: () => changePage(1),
+  getTitle: () => getActivePage().title,
+});
 
 // ── Active tool cleanup ─────────────────────────────────────────────────────
 let deactivateCurrent = null;
@@ -72,6 +95,70 @@ function render() {
   });
 
   sceneLayer.batchDraw();
+}
+
+function applyCanvasSettings() {
+  const settings = getCanvasSettings();
+  const container = stage.container();
+  const viewport = getViewport();
+  container.classList.add('custom-canvas');
+  container.classList.remove('grid-dots', 'grid-mesh');
+  container.style.setProperty('--canvas-background', settings.background);
+  if (settings.showGrid && settings.gridType !== 'none') {
+    container.classList.add(settings.gridType === 'mesh' ? 'grid-mesh' : 'grid-dots');
+    const screenSize = settings.gridSize * viewport.scale;
+    container.style.backgroundSize = `${screenSize}px ${screenSize}px`;
+    container.style.backgroundPosition = `${viewport.x}px ${viewport.y}px`;
+  } else {
+    container.style.backgroundSize = '';
+    container.style.backgroundPosition = '';
+  }
+  setGridSnapping({ enabled: settings.snapToGrid, size: settings.gridSize, snapToElements: settings.snapToElements });
+  rulers?.update(settings.showRulers);
+  canvasControls?.updateSettings(settings);
+  canvasControls?.updatePages(getPages(), getActivePageId());
+}
+
+function zoomToSelection() {
+  const ids = getSelectedIds();
+  const nodes = ids.map((id) => sceneLayer.findOne(`#${id}`)).filter(Boolean);
+  if (nodes.length === 0) return false;
+  const boxes = nodes.map((node) => node.getClientRect({ relativeTo: stage }));
+  const minX = Math.min(...boxes.map((box) => box.x));
+  const minY = Math.min(...boxes.map((box) => box.y));
+  const maxX = Math.max(...boxes.map((box) => box.x + box.width));
+  const maxY = Math.max(...boxes.map((box) => box.y + box.height));
+  return zoomToBounds({ x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) });
+}
+
+function switchPage(id) {
+  if (!setActivePage(id)) return;
+  clearSelection();
+  setViewport(getSavedViewport());
+  render();
+  applyCanvasSettings();
+  presentation?.update();
+}
+
+function changePage(direction) {
+  const pages = getPages();
+  const index = pages.findIndex((page) => page.id === getActivePageId());
+  const target = pages[(index + direction + pages.length) % pages.length];
+  switchPage(target.id);
+}
+
+function handlePageAction(action, id) {
+  if (action === 'add') addPage();
+  else if (action === 'duplicate') duplicatePage();
+  else if (action === 'delete') deletePage();
+  else if (action === 'switch') return switchPage(id);
+  else if (action === 'rename') {
+    const page = getPages().find((item) => item.id === id);
+    const title = page && window.prompt('Page name', page.title);
+    if (title !== null && title !== undefined) renamePage(id, title);
+  } else if (action === 'previous') return changePage(-1);
+  else if (action === 'next') return changePage(1);
+  switchPage(getActivePageId());
 }
 
 // ── Tool switching ───────────────────────────────────────────────────────────
@@ -257,6 +344,7 @@ function initActionBar() {
     importJSON(() => {
       render();
       fitView(getElements());
+      applyCanvasSettings();
     });
   });
 
@@ -286,15 +374,8 @@ initActionBar();
 // ── Zoom controls & Grid Toggle ──────────────────────────────────────────────
 function initZoomControls() {
   const zc = document.getElementById('zoom-controls');
-  const container = document.getElementById('canvas-container');
-  if (container) container.classList.add('grid-dots');
 
   zc.innerHTML = `
-    <button class="zoom-btn" id="btn-grid-toggle" aria-label="Toggle background grid" title="Toggle background grid (Dots / Mesh / Clean)">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>
-      </svg>
-    </button>
     <button class="zoom-btn" id="btn-zoom-out" aria-label="Zoom out" title="Zoom out (-)">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>
@@ -314,22 +395,12 @@ function initZoomControls() {
     </button>
   `;
 
-  let gridState = 0; // 0: dots, 1: mesh, 2: none
-  document.getElementById('btn-grid-toggle').addEventListener('click', () => {
-    gridState = (gridState + 1) % 3;
-    container.classList.remove('grid-dots', 'grid-mesh');
-    if (gridState === 0) container.classList.add('grid-dots');
-    else if (gridState === 1) container.classList.add('grid-mesh');
-  });
-
   document.getElementById('btn-zoom-in').addEventListener('click', () =>
     zoomTo(getScale() * 1.25, stage.width() / 2, stage.height() / 2));
   document.getElementById('btn-zoom-out').addEventListener('click', () =>
     zoomTo(getScale() / 1.25, stage.width() / 2, stage.height() / 2));
   document.getElementById('zoom-level').addEventListener('click', () => {
-    zoomToPercent(1);
-    stage.position({ x: 0, y: 0 });
-    stage.batchDraw();
+    setViewport({ x: 0, y: 0, scale: 1 });
     document.getElementById('zoom-level').textContent = '100%';
   });
   document.getElementById('btn-fit-view').addEventListener('click', () =>
@@ -341,6 +412,13 @@ onZoomChange((scale) => {
   const el = document.getElementById('zoom-level');
   if (el) el.textContent = `${Math.round(scale * 100)}%`;
 });
+
+onViewportChange((viewport) => {
+  updateViewport(viewport);
+  applyCanvasSettings();
+});
+
+applyCanvasSettings();
 
 // ── Keyboard shortcuts ───────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -399,7 +477,8 @@ window.addEventListener('keydown', (e) => {
 
   // Fit view
   if (e.key.toLowerCase() === 'f' && !isMod) {
-    fitView(getElements());
+    if (e.shiftKey) zoomToSelection();
+    else fitView(getElements());
     return;
   }
 

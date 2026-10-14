@@ -6,6 +6,24 @@ import Konva from 'konva';
 import { getElements } from './scene.js';
 import { getTransformerLayer, getScale } from './stage.js';
 
+let gridSettings = { enabled: false, size: 24, snapToElements: true };
+
+export function setGridSnapping(settings = {}) {
+  gridSettings = {
+    enabled: Boolean(settings.enabled),
+    snapToElements: settings.snapToElements !== false,
+    size: Number.isFinite(settings.size) ? Math.max(8, Math.min(200, settings.size)) : 24,
+  };
+}
+
+export function snapPoint(point) {
+  if (!gridSettings.enabled) return point;
+  return {
+    x: Math.round(point.x / gridSettings.size) * gridSettings.size,
+    y: Math.round(point.y / gridSettings.size) * gridSettings.size,
+  };
+}
+
 const SNAP_THRESHOLD = 8; // px at scale=1; adjusted for current zoom
 
 let guideLines = [];
@@ -47,6 +65,9 @@ function getSnapCandidates(draggedId) {
  * @returns {{ x: number, y: number }} snapped position
  */
 export function computeSnap(node, elementId) {
+  if (!gridSettings.snapToElements) {
+    return snapPoint({ x: node.x(), y: node.y() });
+  }
   const scale = getScale();
   const threshold = SNAP_THRESHOLD / scale;
   const { vertical, horizontal } = getSnapCandidates(elementId);
@@ -91,10 +112,10 @@ export function computeSnap(node, elementId) {
     if (snapY !== null) break;
   }
 
-  return {
+  return snapPoint({
     x: snapX !== null ? snapX : nodeX,
     y: snapY !== null ? snapY : nodeY,
-  };
+  });
 }
 
 /** Draw a temporary guide line on the transformer layer */

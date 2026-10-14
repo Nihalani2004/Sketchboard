@@ -7,6 +7,7 @@
 
 import { createElement, addElement, updateElement, removeElement, snapshot } from '../scene.js';
 import { getStage, screenToStage } from '../stage.js';
+import { snapPoint } from '../snapping.js';
 import { push as historyPush } from '../history.js';
 
 /** Lazily get the overlay element */
@@ -139,7 +140,7 @@ export function activateTextTool(onCommit) {
     // Prevent this click from immediately blurring the overlay we're about to open
     e.evt.preventDefault();
 
-    const pos = screenToStage(e.evt.clientX, e.evt.clientY);
+    const pos = snapPoint(screenToStage(e.evt.clientX, e.evt.clientY));
     openOverlay(pos.x, pos.y);
   }
 

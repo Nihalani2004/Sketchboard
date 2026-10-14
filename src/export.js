@@ -11,6 +11,9 @@ const SUPPORTED_ELEMENT_TYPES = new Set([
   'rectangle', 'ellipse', 'diamond', 'line', 'arrow', 'freedraw', 'text',
 ]);
 const EXPORT_PADDING = 40;
+const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
+const MAX_PAGES = 100;
+const MAX_ELEMENTS_PER_PAGE = 10000;
 
 /**
  * Download a file in the browser.
@@ -45,14 +48,14 @@ function download(content, filename, type = 'text/plain') {
 export function exportJSON(appState = {}) {
   const serialized = serialize();
   const data = {
-    elements: serialized.elements,
+    ...serialized,
     appState: {
       background: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
       ...appState,
     },
     exportedAt: new Date().toISOString(),
     app: 'Sketchboard',
-    version: 1,
+    version: 2,
   };
   const json = JSON.stringify(data, null, 2);
   download(json, `sketchboard-${Date.now()}.json`, 'application/json');
@@ -76,6 +79,11 @@ export function importJSON(onImport) {
   input.onchange = (e) => {
     const file = e.target.files[0];
     if (!file) { cleanupInput(); return; }
+    if (file.size > MAX_IMPORT_BYTES) {
+      alert('Failed to import: file is larger than the 10 MB limit.');
+      cleanupInput();
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
@@ -106,28 +114,42 @@ export function importJSON(onImport) {
 }
 
 /** Reject malformed scene data before it can replace the current drawing. */
-function validateImportData(data) {
-  if (!data || !Array.isArray(data.elements)) {
-    throw new Error('not a Sketchboard JSON export');
-  }
-
-  data.elements.forEach((el, index) => {
+function validateElements(elements, pageLabel) {
+  if (!Array.isArray(elements) || elements.length > MAX_ELEMENTS_PER_PAGE) throw new Error(`${pageLabel} has too many or invalid elements`);
+  const ids = new Set();
+  elements.forEach((el, index) => {
     if (!el || typeof el !== 'object') {
-      throw new Error(`element ${index + 1} is invalid`);
+      throw new Error(`${pageLabel}, element ${index + 1} is invalid`);
     }
-    if (typeof el.id !== 'string' || !SUPPORTED_ELEMENT_TYPES.has(el.type)) {
-      throw new Error(`element ${index + 1} has an unsupported type`);
+    if (typeof el.id !== 'string' || !el.id || ids.has(el.id) || !SUPPORTED_ELEMENT_TYPES.has(el.type)) {
+      throw new Error(`${pageLabel}, element ${index + 1} has an unsupported type or ID`);
     }
+    ids.add(el.id);
     if (!Number.isFinite(el.x) || !Number.isFinite(el.y)) {
-      throw new Error(`element ${index + 1} has invalid coordinates`);
+      throw new Error(`${pageLabel}, element ${index + 1} has invalid coordinates`);
     }
     if (el.type === 'freedraw') {
       if (!Array.isArray(el.points)) {
-        throw new Error(`freehand element ${index + 1} is missing points`);
+        throw new Error(`${pageLabel}, freehand element ${index + 1} is missing points`);
       }
     } else if (!Number.isFinite(el.width) || !Number.isFinite(el.height)) {
-      throw new Error(`element ${index + 1} has invalid dimensions`);
+      throw new Error(`${pageLabel}, element ${index + 1} has invalid dimensions`);
     }
+  });
+}
+
+function validateImportData(data) {
+  if (!data || typeof data !== 'object') throw new Error('not a Sketchboard JSON export');
+  if (Array.isArray(data.elements)) {
+    validateElements(data.elements, 'Page 1');
+    return;
+  }
+  if (!Array.isArray(data.pages) || data.pages.length === 0 || data.pages.length > MAX_PAGES) throw new Error('document has an invalid number of pages');
+  const pageIds = new Set();
+  data.pages.forEach((page, index) => {
+    if (!page || typeof page !== 'object' || typeof page.id !== 'string' || pageIds.has(page.id)) throw new Error(`page ${index + 1} is invalid`);
+    pageIds.add(page.id);
+    validateElements(page.elements, `Page ${index + 1}`);
   });
 }
 

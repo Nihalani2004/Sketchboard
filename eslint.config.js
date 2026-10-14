@@ -1,7 +1,7 @@
 const browserGlobals = Object.fromEntries(
   [
-    'alert', 'Blob', 'ClipboardItem', 'clearTimeout', 'confirm', 'console',
-    'document', 'fetch', 'FileReader', 'localStorage', 'navigator', 'Path2D',
+      'alert', 'Blob', 'ClipboardItem', 'cancelAnimationFrame', 'clearTimeout', 'confirm', 'console',
+      'document', 'fetch', 'FileReader', 'getComputedStyle', 'localStorage', 'navigator', 'Path2D',
     'requestAnimationFrame', 'setTimeout', 'URL', 'window',
   ].map((name) => [name, 'readonly']),
 );

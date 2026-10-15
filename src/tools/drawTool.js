@@ -6,7 +6,13 @@
 import { createElement, addElement, snapshot } from '../scene.js';
 import { getStage, getSceneLayer, getTransformerLayer, screenToStage } from '../stage.js';
 import { snapPoint } from '../snapping.js';
-import { createSketchyRect, createSketchyEllipse, createSketchyLine, createSketchyArrow, createSketchyDiamond } from '../shapes/sketchyShape.js';
+import {
+  createSketchyRect, createSketchyEllipse, createSketchyLine, createSketchyArrow, createSketchyDiamond,
+  createSketchyTriangle, createSketchyRoundedRect, createSketchyCloud, createSketchyCallout, createSketchyStickyNote,
+  createFlowchartProcess, createFlowchartTerminator, createFlowchartDecision, createFlowchartInputOutput,
+  createFlowchartDocument, createFlowchartDatabase,
+} from '../shapes/sketchyShape.js';
+import { getShapeDefaults } from '../shapes/catalog.js';
 import { push as historyPush } from '../history.js';
 
 let isDrawing = false;
@@ -14,6 +20,14 @@ let startPos = null;
 let previewShape = null;
 let activeType = null;
 let styleDefaults = {};
+
+function resolvedStyleDefaults() {
+  const defaults = { ...styleDefaults };
+  if (defaults.backgroundColor === undefined || defaults.backgroundColor === 'transparent') {
+    Object.assign(defaults, getShapeDefaults(activeType));
+  }
+  return defaults;
+}
 
 /** Set the current draw type ('rectangle'|'ellipse'|'line'|'arrow') and defaults */
 export function setDrawType(type, defaults) {
@@ -139,7 +153,7 @@ export function activateDrawTool(onCommit) {
       ...((activeType === 'arrow' || activeType === 'line')
         ? { flipX: w < 0, flipY: h < 0 }
         : {}),
-      ...styleDefaults,
+      ...resolvedStyleDefaults(),
     });
     addElement(el);
     if (onCommit) onCommit(el);
@@ -164,17 +178,20 @@ export function activateDrawTool(onCommit) {
 
 function _createPreview(x, y, w, h) {
   const layer = getTransformerLayer();
+  const previewStyle = resolvedStyleDefaults();
 
   const mockEl = {
     id: '__preview__',
+    type: activeType,
     x, y, width: w, height: h,
-    strokeColor: styleDefaults.strokeColor || '#6366f1',
-    backgroundColor: styleDefaults.backgroundColor || 'transparent',
-    fillStyle: styleDefaults.fillStyle || 'solid',
-    strokeWidth: styleDefaults.strokeWidth || 2,
-    strokeStyle: styleDefaults.strokeStyle || 'solid',
-    roughness: styleDefaults.roughness ?? 0,
-    seed: styleDefaults.seed || Math.floor(Math.random() * 100000),
+    ...previewStyle,
+    strokeColor: previewStyle.strokeColor || '#6366f1',
+    backgroundColor: previewStyle.backgroundColor || 'transparent',
+    fillStyle: previewStyle.fillStyle || 'solid',
+    strokeWidth: previewStyle.strokeWidth || 2,
+    strokeStyle: previewStyle.strokeStyle || 'solid',
+    roughness: previewStyle.roughness ?? 0,
+    seed: previewStyle.seed || Math.floor(Math.random() * 100000),
     opacity: 0.7,
   };
 
@@ -183,6 +200,17 @@ function _createPreview(x, y, w, h) {
   else if (activeType === 'line') previewShape = createSketchyLine(mockEl);
   else if (activeType === 'arrow') previewShape = createSketchyArrow(mockEl);
   else if (activeType === 'diamond') previewShape = createSketchyDiamond(mockEl);
+  else if (activeType === 'triangle') previewShape = createSketchyTriangle(mockEl);
+  else if (activeType === 'rounded-rectangle') previewShape = createSketchyRoundedRect(mockEl);
+  else if (activeType === 'cloud') previewShape = createSketchyCloud(mockEl);
+  else if (activeType === 'callout') previewShape = createSketchyCallout(mockEl);
+  else if (activeType === 'sticky-note') previewShape = createSketchyStickyNote(mockEl);
+  else if (activeType === 'flowchart-process') previewShape = createFlowchartProcess(mockEl);
+  else if (activeType === 'flowchart-terminator') previewShape = createFlowchartTerminator(mockEl);
+  else if (activeType === 'flowchart-decision') previewShape = createFlowchartDecision(mockEl);
+  else if (activeType === 'flowchart-input-output') previewShape = createFlowchartInputOutput(mockEl);
+  else if (activeType === 'flowchart-document') previewShape = createFlowchartDocument(mockEl);
+  else if (activeType === 'flowchart-database') previewShape = createFlowchartDatabase(mockEl);
 
   if (previewShape) {
     layer.add(previewShape);

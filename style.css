@@ -74,6 +74,22 @@ html, body {
   background-color: var(--canvas-background, var(--sb-canvas-bg));
 }
 
+#canvas-container.image-drop-active::after {
+  content: 'Drop image to add';
+  position: absolute;
+  inset: 28px;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--sb-accent);
+  border-radius: 14px;
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--sb-accent);
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
 .dark #canvas-container.grid-dots {
   background-image: radial-gradient(rgba(255, 255, 255, 0.2) 1.2px, transparent 1.2px);
 }
@@ -187,6 +203,69 @@ body.presentation-mode #canvas-container { cursor: default !important; }
 
 #toolbar.is-ready {
   visibility: visible;
+}
+
+/* Kept separate from the primary toolbar so existing controls never shift. */
+#shape-library {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  z-index: 120;
+  transform: translateX(-50%);
+}
+
+#shape-library-trigger {
+  border: 1px solid var(--sb-panel-border);
+  border-radius: 8px;
+  background: var(--sb-panel-bg);
+  box-shadow: var(--sb-panel-shadow);
+  color: var(--sb-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 10px;
+}
+
+#shape-library-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 4px;
+  width: 272px;
+  padding: 8px;
+  transform: translateX(-50%);
+  border: 1px solid var(--sb-panel-border);
+  border-radius: 10px;
+  background: var(--sb-panel-bg);
+  box-shadow: var(--sb-panel-shadow);
+  backdrop-filter: blur(12px);
+}
+
+#shape-library-menu.hidden { display: none; }
+.shape-library-heading {
+  grid-column: 1 / -1;
+  margin: 4px 4px 1px;
+  color: var(--sb-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.shape-library-item {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sb-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 8px;
+  text-align: left;
+}
+.shape-library-item:hover, #shape-library-trigger:hover {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--sb-accent);
 }
 
 .toolbar-btn {

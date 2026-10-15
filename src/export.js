@@ -7,10 +7,8 @@ import { serialize, deserialize, getElements, snapshot } from './scene.js';
 import { getStage, getSceneLayer, getTransformerLayer, getLaserLayer } from './stage.js';
 import { push as historyPush } from './history.js';
 import { reportError } from './monitoring.js';
+import { SUPPORTED_ELEMENT_TYPES } from './shapes/catalog.js';
 
-const SUPPORTED_ELEMENT_TYPES = new Set([
-  'rectangle', 'ellipse', 'diamond', 'line', 'arrow', 'freedraw', 'text',
-]);
 const EXPORT_PADDING = 40;
 const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
 const MAX_PAGES = 100;
@@ -135,6 +133,13 @@ function validateElements(elements, pageLabel) {
       }
     } else if (!Number.isFinite(el.width) || !Number.isFinite(el.height)) {
       throw new Error(`${pageLabel}, element ${index + 1} has invalid dimensions`);
+    }
+    if (el.type === 'image' && (
+      el.width <= 0 || el.height <= 0
+      || typeof el.src !== 'string'
+      || !/^data:image\/(?:png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=]+$/i.test(el.src)
+    )) {
+      throw new Error(`${pageLabel}, image element ${index + 1} has an unsupported source`);
     }
   });
 }

@@ -41,4 +41,36 @@ describe('draft persistence', () => {
     expect(store.restore()).toBeNull();
     expect(statuses).toEqual(['unavailable', 'unavailable']);
   });
+
+  it('keeps a bounded recent-document list and restores the selected draft', () => {
+    const storage = memoryStorage();
+    const store = createDraftStore({ storage });
+    const first = { ...validDocument, pages: [{ ...validDocument.pages[0], title: 'Planning' }] };
+    const second = { ...validDocument, activePageId: 'page_2', pages: [{ ...validDocument.pages[0], id: 'page_2', title: 'Roadmap' }] };
+
+    store.save(first, { id: 'draft_first' });
+    store.save(second, { id: 'draft_second' });
+
+    expect(store.listRecent().map((document) => document.title)).toEqual(['Roadmap', 'Planning']);
+    expect(store.restore('draft_first')).toEqual(first);
+    expect(store.getActiveId()).toBe('draft_first');
+  });
+
+  it('discards only the requested recent document', () => {
+    const store = createDraftStore({ storage: memoryStorage() });
+    store.save(validDocument, { id: 'keep' });
+    store.save({ ...validDocument, activePageId: 'page_2', pages: [{ ...validDocument.pages[0], id: 'page_2', title: 'Other' }] }, { id: 'remove' });
+
+    expect(store.discard('remove')).toBe(true);
+    expect(store.listRecent().map((document) => document.id)).toEqual(['keep']);
+  });
+
+  it('starts a new draft without removing recent documents', () => {
+    const store = createDraftStore({ storage: memoryStorage() });
+    store.save(validDocument, { id: 'existing' });
+
+    expect(store.startNew()).toBe(true);
+    expect(store.getActiveId()).toBeNull();
+    expect(store.listRecent().map((document) => document.id)).toEqual(['existing']);
+  });
 });

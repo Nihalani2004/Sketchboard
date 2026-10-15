@@ -99,7 +99,9 @@ Full undo/redo via **Ctrl+Z** / **Ctrl+Shift+Z** (or Cmd on Mac). Snapshots are 
 | **Copy PNG** | Copy cropped diagram image directly to system clipboard. |
 
 ### 💾 Saving Your Work
-Refreshing or reopening Sketchboard starts a new blank canvas. Export JSON for portable, long-term backups and use **Open** to restore an exported drawing.
+Sketchboard autosaves the current document, pages, canvas settings, and viewport locally in the browser. On the next visit it asks before restoring a draft; choose **Discard** to remove it instead. Use **Canvas → New board** to preserve the current draft and begin another, or **Canvas → Recent drafts** to reopen or remove up to five recent local drafts.
+
+Local drafts remain on the same browser and device only. Export JSON for portable, long-term backups and use **Open** to restore an exported drawing.
 
 ### 🛡️ Production Error Monitoring
 Unexpected production errors can be sent to Sentry only after `VITE_SENTRY_DSN` is configured. Monitoring is disabled by default, does not send default PII, and avoids document contents in reported context. Copy `.env.example` to `.env.local` for local configuration; add the same variables in Vercel's Production environment before deployment.

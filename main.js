@@ -11,7 +11,7 @@ import {
 } from './src/stage.js';
 import {
   getElements, updateElement, setElements,
-  snapshot, DEFAULT_STYLE, getPages, getActivePage, getActivePageId, setActivePage,
+  snapshot, serialize, deserialize, DEFAULT_STYLE, getPages, getActivePage, getActivePageId, setActivePage,
   addPage, duplicatePage, renamePage, deletePage, getCanvasSettings, updateCanvasSettings,
   getViewport as getSavedViewport, updateViewport,
 } from './src/scene.js';
@@ -52,6 +52,9 @@ import { initRulers } from './src/ui/rulers.js';
 import { initCanvasControls } from './src/ui/canvasControls.js';
 import { initShapePalette } from './src/ui/shapePalette.js';
 import { initPresentation } from './src/ui/presentation.js';
+import { initDraftStatus } from './src/ui/draftStatus.js';
+import { initDraftRecovery } from './src/ui/draftRecovery.js';
+import { createDraftStore } from './src/persistence.js';
 import { initMonitoring, reportError } from './src/monitoring.js';
 import { initUserNotifier } from './src/ui/notifications.js';
 import { supportsShapeLabel } from './src/shapes/catalog.js';
@@ -61,17 +64,91 @@ import { openShapeLabelEditForElement } from './src/tools/textTool.js';
 const stage = initStage('canvas-container');
 const sceneLayer = getSceneLayer();
 const userNotifier = initUserNotifier();
+const draftStatus = initDraftStatus();
+const draftStore = createDraftStore({ onStatus: (status) => draftStatus.show(status) });
+const draftRecovery = initDraftRecovery();
+let autosaveEnabled = false;
+
+function scheduleAutosave() {
+  if (autosaveEnabled) draftStore.schedule(serialize());
+}
+
+function finishRecovery() {
+  autosaveEnabled = true;
+  draftRecovery.close();
+  render();
+  applyCanvasSettings();
+  scheduleAutosave();
+}
+
+function startNewDocument() {
+  if (!window.confirm('Start a new board? Your current local draft will remain available in Recent drafts.')) return;
+  if (!draftStore.startNew()) return;
+  clearSelection();
+  deserialize({ elements: [] });
+  setViewport(getSavedViewport());
+  autosaveEnabled = true;
+  render();
+  applyCanvasSettings();
+  scheduleAutosave();
+}
+
+function restoreRecentDocument(id) {
+  const savedDocument = draftStore.restore(id);
+  if (!savedDocument) {
+    showRecentDocuments();
+    return;
+  }
+  deserialize(savedDocument);
+  setViewport(getSavedViewport());
+  finishRecovery();
+}
+
+function discardRecentDocument(id, { startup = false } = {}) {
+  draftStore.discard(id);
+  const remaining = draftStore.listRecent();
+  if (remaining.length > 0) {
+    showRecentDocuments({ startup });
+    return;
+  }
+  if (startup) finishRecovery();
+  else {
+    draftRecovery.close();
+    scheduleAutosave();
+  }
+}
+
+function showRecentDocuments({ startup = false } = {}) {
+  const documents = draftStore.listRecent();
+  if (documents.length === 0) {
+    if (!startup) userNotifier.show('No local drafts are available in this browser.');
+    return;
+  }
+  draftRecovery.open({
+    documents,
+    dismissible: !startup,
+    title: startup ? 'Restore local work?' : 'Recent local drafts',
+    description: startup
+      ? 'Your work is stored only in this browser. Choose a draft to continue or discard it.'
+      : 'Choose a locally autosaved draft to open, or discard a draft you no longer need.',
+    onRestore: restoreRecentDocument,
+    onDiscard: (id) => discardRecentDocument(id, { startup }),
+  });
+}
+
 initMonitoring();
 const rulers = initRulers({
   getViewport,
   getStageSize: () => ({ width: stage.width(), height: stage.height() }),
 });
 const canvasControls = initCanvasControls({
-  onSettingsChange: (patch) => { updateCanvasSettings(patch); applyCanvasSettings(); },
-  onPreset: (name) => { updateCanvasSettings(settingsForPreset(name)); applyCanvasSettings(); },
+  onSettingsChange: (patch) => { updateCanvasSettings(patch); applyCanvasSettings(); scheduleAutosave(); },
+  onPreset: (name) => { updateCanvasSettings(settingsForPreset(name)); applyCanvasSettings(); scheduleAutosave(); },
   onPageAction: handlePageAction,
   onZoomSelection: zoomToSelection,
   onPresentation: () => presentation.enter(),
+  onRecentDocuments: () => showRecentDocuments(),
+  onNewDocument: startNewDocument,
 });
 const presentation = initPresentation({
   onPrevious: () => changePage(-1),
@@ -138,6 +215,7 @@ function render() {
   });
 
   sceneLayer.batchDraw();
+  scheduleAutosave();
 }
 
 function applyCanvasSettings() {
@@ -375,6 +453,7 @@ onSelectionChange((selectedElements) => {
 
 onElementUpdate((id, patch) => {
   updateElement(id, patch);
+  scheduleAutosave();
 });
 
 onPanelAction((action) => {
@@ -473,6 +552,7 @@ onZoomChange((scale) => {
 onViewportChange((viewport) => {
   updateViewport(viewport);
   applyCanvasSettings();
+  scheduleAutosave();
 });
 
 applyCanvasSettings();
@@ -561,8 +641,11 @@ window.addEventListener('keydown', (e) => {
 stage.container().addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ── Initial state ─────────────────────────────────────────────────────────────
-// A direct visit or refresh always opens a new canvas. Remove legacy drafts
-// from older releases so prior drawings are not unexpectedly shown again.
-try { localStorage.removeItem('sketchboard:draft:v1'); } catch { /* Storage can be disabled. */ }
-switchTool('select');   // starts with select, panel hidden
+switchTool('select');
 render();
+if (draftStore.listRecent().length > 0) showRecentDocuments({ startup: true });
+else finishRecovery();
+
+window.addEventListener('pagehide', () => {
+  if (autosaveEnabled) draftStore.flush(serialize());
+});

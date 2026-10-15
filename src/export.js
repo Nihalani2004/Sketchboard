@@ -13,6 +13,7 @@ const EXPORT_PADDING = 40;
 const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
 const MAX_PAGES = 100;
 const MAX_ELEMENTS_PER_PAGE = 10000;
+const PNG_BACKGROUND = '#ffffff';
 
 /**
  * Download a file in the browser.
@@ -220,8 +221,23 @@ function createCroppedPNG(elements) {
   const trWasVisible = trLayer.visible();
   const laserWasVisible = laserLayer.visible();
   const textWasVisible = textOverlay?.classList.contains('visible');
+  const root = document.documentElement;
+  const wasDark = root.classList.contains('dark');
+  const textFills = [];
 
   try {
+    // A PNG does not carry the CSS canvas background. Export against an opaque
+    // light surface so it remains legible in viewers that render transparency
+    // as black. The temporary light palette also keeps default strokes dark.
+    if (wasDark) root.classList.remove('dark');
+    if (wasDark) {
+      getSceneLayer().find('Text').forEach((node) => {
+        if (node.fill() === '#e8e8e8') {
+          textFills.push([node, node.fill()]);
+          node.fill('#1e1e1e');
+        }
+      });
+    }
     trLayer.visible(false);
     laserLayer.visible(false);
     if (textWasVisible) textOverlay.classList.remove('visible');
@@ -229,15 +245,25 @@ function createCroppedPNG(elements) {
 
     const scale = stage.scaleX();
     const stagePos = stage.position();
-    return stage.toDataURL({
+    const croppedCanvas = stage.toCanvas({
       pixelRatio: 2,
       x: bounds.minX * scale + stagePos.x - EXPORT_PADDING * scale,
       y: bounds.minY * scale + stagePos.y - EXPORT_PADDING * scale,
       width: (bounds.maxX - bounds.minX + EXPORT_PADDING * 2) * scale,
       height: (bounds.maxY - bounds.minY + EXPORT_PADDING * 2) * scale,
-      mimeType: 'image/png',
     });
+    const output = document.createElement('canvas');
+    output.width = croppedCanvas.width;
+    output.height = croppedCanvas.height;
+    const context = output.getContext('2d');
+    if (!context) throw new Error('unable to prepare PNG canvas');
+    context.fillStyle = PNG_BACKGROUND;
+    context.fillRect(0, 0, output.width, output.height);
+    context.drawImage(croppedCanvas, 0, 0);
+    return output.toDataURL('image/png');
   } finally {
+    textFills.forEach(([node, fill]) => node.fill(fill));
+    if (wasDark) root.classList.add('dark');
     trLayer.visible(trWasVisible);
     laserLayer.visible(laserWasVisible);
     if (textWasVisible) textOverlay.classList.add('visible');

@@ -44,6 +44,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--sb-canvas-bg);
   color: var(--sb-text-primary);
@@ -51,10 +52,11 @@ html, body {
 }
 
 #app {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100svh;
   position: relative;
-  overflow: hidden;
+  overflow: clip;
 }
 
 /* ─── Canvas container ───────────────────────────────────────────────────── */
@@ -62,6 +64,8 @@ html, body {
   position: absolute;
   inset: 0;
   cursor: default;
+  overflow: hidden;
+  touch-action: none;
   transition: background 0.3s;
 }
 
@@ -173,7 +177,6 @@ body.presentation-mode #canvas-container { cursor: default !important; }
 
 @media (max-width: 720px) {
   #page-controls { left: 8px; right: 8px; transform: none; }
-  #page-controls .canvas-control-btn:nth-last-child(-n+3) { display: none; }
 }
 
 .dark #canvas-container.grid-mesh {
@@ -233,7 +236,7 @@ body.presentation-mode #canvas-container { cursor: default !important; }
   display: grid;
   grid-template-columns: repeat(2, minmax(120px, 1fr));
   gap: 4px;
-  width: 272px;
+  width: min(272px, calc(100vw - 16px));
   padding: 8px;
   transform: translateX(-50%);
   border: 1px solid var(--sb-panel-border);
@@ -550,6 +553,8 @@ body.presentation-mode #canvas-container { cursor: default !important; }
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
   border: none;
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
@@ -727,4 +732,133 @@ body.presentation-mode #canvas-container { cursor: default !important; }
     top: 60px;
     left: 12px;
   }
+}
+
+/* Layout adjustments keep the floating canvas controls usable at every size. */
+@media (min-width: 721px) and (max-width: 1199px) {
+  #action-bar {
+    top: 76px;
+    right: 12px;
+    left: auto;
+  }
+  #style-panel { top: 76px; }
+  #canvas-settings { top: 124px; right: 12px; }
+}
+
+@media (max-width: 720px) {
+  :root { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+  #toolbar {
+    top: max(8px, env(safe-area-inset-top));
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    padding: 5px 6px;
+    gap: 1px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+  #toolbar::-webkit-scrollbar, #page-controls::-webkit-scrollbar { display: none; }
+  .toolbar-btn { flex: 0 0 40px; width: 40px; height: 40px; }
+  .toolbar-divider { flex: 0 0 1px; margin: 0 2px; }
+  .toolbar-btn::after, .action-btn::after { display: none; }
+
+  #action-bar {
+    top: calc(max(8px, env(safe-area-inset-top)) + 52px);
+    right: 8px;
+    left: 8px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .action-btn {
+    justify-content: center;
+    min-width: 0;
+    height: 40px;
+    padding: 0;
+    font-size: 14px;
+  }
+  .action-btn > span:last-child { display: none; }
+
+  #shape-library {
+    top: calc(max(8px, env(safe-area-inset-top)) + 100px);
+    left: 8px;
+    transform: none;
+  }
+  #shape-library-trigger { min-height: 36px; }
+  #shape-library-menu {
+    left: 0;
+    transform: none;
+    grid-template-columns: 1fr;
+    max-height: min(58dvh, 420px);
+    overflow-y: auto;
+  }
+  .shape-library-item { min-height: 36px; font-size: 13px; }
+
+  #canvas-settings {
+    top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+    right: 8px;
+  }
+  #canvas-settings-toggle { min-height: 36px; }
+  #canvas-settings-panel {
+    width: min(220px, calc(100vw - 16px));
+    max-height: calc(100dvh - 164px);
+    overflow-y: auto;
+  }
+  #canvas-settings-panel select { font-size: 16px; }
+
+  #style-panel {
+    top: calc(max(8px, env(safe-area-inset-top)) + 152px);
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-height: calc(100dvh - 222px);
+    overflow-y: auto;
+    padding: 12px;
+  }
+  .panel-section { margin-bottom: 12px; }
+  .panel-row { flex-wrap: wrap; }
+  .stroke-btn, .fill-style-btn { min-height: 36px; }
+
+  #page-controls {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    gap: 2px;
+    padding: 5px;
+    max-width: calc(100vw - 16px);
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+  #page-list { min-width: max-content; }
+  .canvas-control-btn, .page-tab { min-height: 34px; padding: 6px 8px; }
+
+  #zoom-controls {
+    right: 8px;
+    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 52px);
+  }
+  #draft-status { bottom: calc(max(8px, env(safe-area-inset-bottom)) + 108px); }
+  #user-notification {
+    top: calc(max(8px, env(safe-area-inset-top)) + 152px);
+    width: calc(100vw - 16px);
+    max-width: none;
+  }
+  #canvas-container.image-drop-active::after { inset: 12px; font-size: 14px; }
+
+  #presentation-controls {
+    width: calc(100vw - 16px);
+    max-width: 480px;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+  #presentation-controls button { min-height: 36px; }
+}
+
+@media (max-width: 380px) {
+  #toolbar { max-width: calc(100vw - 12px); }
+  #action-bar { right: 6px; left: 6px; }
+  #shape-library { left: 6px; }
+  #canvas-settings { right: 6px; }
+  #style-panel { right: 6px; left: 6px; }
+  #page-controls { left: 6px; right: 6px; max-width: calc(100vw - 12px); }
+  #zoom-controls { right: 6px; }
+  #user-notification { width: calc(100vw - 12px); }
 }

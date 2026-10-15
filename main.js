@@ -420,6 +420,8 @@ function initActionBar() {
 function _makeActionBtn(label, emoji, tooltip) {
   const btn = document.createElement('button');
   btn.className = 'action-btn';
+  btn.setAttribute('aria-label', tooltip);
+  btn.title = tooltip;
   btn.setAttribute('data-tooltip', tooltip);
   btn.innerHTML = `<span>${emoji}</span><span>${label}</span>`;
   return btn;

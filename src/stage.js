@@ -27,10 +27,14 @@ const MAX_SCALE = 20;
 
 /** Initialise the Konva stage in the given container element */
 export function initStage(container) {
+  const containerElement = typeof container === 'string' ? document.getElementById(container) : container;
+  const width = containerElement?.clientWidth || window.innerWidth;
+  const height = containerElement?.clientHeight || window.innerHeight;
+
   stage = new Konva.Stage({
-    container,
-    width: window.innerWidth,
-    height: window.innerHeight,
+    container: containerElement,
+    width,
+    height,
   });
 
   // Layer ordering: scene → transformer → laser (top)
@@ -249,10 +253,20 @@ function _setupZoom() {
 
 // ── Resize ───────────────────────────────────────────────────────────────────
 function _setupResize() {
-  window.addEventListener('resize', () => {
-    stage.width(window.innerWidth);
-    stage.height(window.innerHeight);
+  const resizeStage = () => {
+    const container = stage.container();
+    const width = container.clientWidth || window.innerWidth;
+    const height = container.clientHeight || window.innerHeight;
+    if (stage.width() === width && stage.height() === height) return;
+    stage.width(width);
+    stage.height(height);
     stage.batchDraw();
     _notifyViewportChange();
-  });
+  };
+
+  window.addEventListener('resize', resizeStage);
+  if (typeof window.ResizeObserver !== 'undefined') {
+    const observer = new window.ResizeObserver(resizeStage);
+    observer.observe(stage.container());
+  }
 }

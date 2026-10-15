@@ -115,16 +115,16 @@ export function activateSelectionTool(onRenderNeeded) {
   stage.on('dblclick.selTool dbltap.selTool', (e) => {
     const node = e.target;
     if (!node.hasName('element')) return;
-    if (node.attrs.elementType !== 'text') return;
 
     const elements = getElements();
     const el = elements.find((e) => e.id === node.id());
     if (!el) return;
 
     clearSelection();
-    openTextEditForElement(el, () => {
+    const onCommit = () => {
       if (onRenderNeeded) onRenderNeeded();
-    });
+    };
+    if (el.type === 'text') openTextEditForElement(el, onCommit);
   });
 
   // ── Drag-select (rubber band) ──────────────────────────────────────────

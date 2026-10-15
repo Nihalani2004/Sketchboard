@@ -18,13 +18,20 @@ import {
 import {
   push as historyPush, undo as historyUndo, redo as historyRedo,
 } from './src/history.js';
-import { createSketchyRect, createSketchyEllipse, createSketchyLine, createSketchyArrow, createSketchyDiamond } from './src/shapes/sketchyShape.js';
+import {
+  createSketchyRect, createSketchyEllipse, createSketchyLine, createSketchyArrow, createSketchyDiamond,
+  createSketchyTriangle, createSketchyRoundedRect, createSketchyCloud, createSketchyCallout, createSketchyStickyNote,
+  createFlowchartProcess, createFlowchartTerminator, createFlowchartDecision, createFlowchartInputOutput,
+  createFlowchartDocument, createFlowchartDatabase,
+} from './src/shapes/sketchyShape.js';
 import { createFreehandShape } from './src/shapes/freehand.js';
 import { createTextShape } from './src/shapes/text.js';
+import { createImageShape } from './src/shapes/image.js';
 import { activateDrawTool, setDrawType, updateDrawDefaults } from './src/tools/drawTool.js';
 import { activateFreehandTool, updateFreehandDefaults } from './src/tools/freehandTool.js';
 import { activateTextTool, updateTextDefaults } from './src/tools/textTool.js';
 import { activateEraserTool } from './src/tools/eraserTool.js';
+import { initImageSupport } from './src/tools/imageTool.js';
 import {
   activateSelectionTool, clearSelection, deleteSelected, duplicateSelected,
   groupSelected, ungroupSelected, moveSelectedFront, moveSelectedBack,
@@ -43,9 +50,12 @@ import {
 } from './src/ui/stylePanel.js';
 import { initRulers } from './src/ui/rulers.js';
 import { initCanvasControls } from './src/ui/canvasControls.js';
+import { initShapePalette } from './src/ui/shapePalette.js';
 import { initPresentation } from './src/ui/presentation.js';
 import { initMonitoring, reportError } from './src/monitoring.js';
 import { initUserNotifier } from './src/ui/notifications.js';
+import { supportsShapeLabel } from './src/shapes/catalog.js';
+import { openShapeLabelEditForElement } from './src/tools/textTool.js';
 
 // ── Stage init ──────────────────────────────────────────────────────────────
 const stage = initStage('canvas-container');
@@ -68,6 +78,21 @@ const presentation = initPresentation({
   onNext: () => changePage(1),
   getTitle: () => getActivePage().title,
 });
+initImageSupport({
+  onInserted: () => render(),
+  onError: (message) => userNotifier.show(message),
+});
+
+// Labels stay available while any drawing tool is active, so users do not have
+// to switch back to Select just to edit text inside a shape.
+stage.on('dblclick.shapeLabel dbltap.shapeLabel', (event) => {
+  const node = event.target;
+  if (!node?.hasName('element')) return;
+  const element = getElements().find((item) => item.id === node.id());
+  if (!element || !supportsShapeLabel(element.type)) return;
+  clearSelection();
+  openShapeLabelEditForElement(element, () => render());
+});
 
 // ── Active tool cleanup ─────────────────────────────────────────────────────
 let deactivateCurrent = null;
@@ -86,11 +111,23 @@ function render() {
       else if (el.type === 'diamond') node = createSketchyDiamond(el);
       else if (el.type === 'line')    node = createSketchyLine(el);
       else if (el.type === 'arrow')   node = createSketchyArrow(el);
+      else if (el.type === 'triangle') node = createSketchyTriangle(el);
+      else if (el.type === 'rounded-rectangle') node = createSketchyRoundedRect(el);
+      else if (el.type === 'cloud') node = createSketchyCloud(el);
+      else if (el.type === 'callout') node = createSketchyCallout(el);
+      else if (el.type === 'sticky-note') node = createSketchyStickyNote(el);
+      else if (el.type === 'flowchart-process') node = createFlowchartProcess(el);
+      else if (el.type === 'flowchart-terminator') node = createFlowchartTerminator(el);
+      else if (el.type === 'flowchart-decision') node = createFlowchartDecision(el);
+      else if (el.type === 'flowchart-input-output') node = createFlowchartInputOutput(el);
+      else if (el.type === 'flowchart-document') node = createFlowchartDocument(el);
+      else if (el.type === 'flowchart-database') node = createFlowchartDatabase(el);
       else if (el.type === 'freedraw') {
         node = createFreehandShape(el);
         if (node) node.attrs.elementPoints = el.points;
       }
       else if (el.type === 'text') node = createTextShape(el);
+      else if (el.type === 'image') node = createImageShape(el);
 
       if (node) sceneLayer.add(node);
     } catch (err) {
@@ -169,7 +206,12 @@ function handlePageAction(action, id) {
 }
 
 // ── Tool switching ───────────────────────────────────────────────────────────
-const DRAW_TOOLS = new Set(['rectangle', 'ellipse', 'diamond', 'line', 'arrow']);
+const DRAW_TOOLS = new Set([
+  'rectangle', 'ellipse', 'diamond', 'line', 'arrow',
+  'triangle', 'rounded-rectangle', 'cloud', 'callout', 'sticky-note',
+  'flowchart-process', 'flowchart-terminator', 'flowchart-decision',
+  'flowchart-input-output', 'flowchart-document', 'flowchart-database',
+]);
 
 function switchTool(toolId) {
   if (deactivateCurrent) {
@@ -251,6 +293,10 @@ initToolbar(isDark, (nowDark) => {
   render();
   applyCanvasSettings();
 });
+initShapePalette((shapeType) => {
+  setActiveTool(shapeType);
+  switchTool(shapeType);
+});
 onToolChange((toolId) => switchTool(toolId));
 onClear(() => {
   historyPush(snapshot());
@@ -324,7 +370,7 @@ onSelectionChange((selectedElements) => {
     opacity:         el.opacity,
     fontSize:        el.fontSize || DEFAULT_STYLE.fontSize,
   });
-  showPanel(el.type === 'text');
+  showPanel(el.type === 'text' || supportsShapeLabel(el.type));
 });
 
 onElementUpdate((id, patch) => {

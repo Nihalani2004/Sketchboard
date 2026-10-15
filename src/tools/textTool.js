@@ -17,6 +17,8 @@ function getOverlay() {
 
 const styleDefaults = {};
 let editingId = null;
+let editingField = 'text';
+let fixedOverlayWidth = false;
 let onCommitCb = null;
 
 export function updateTextDefaults(patch) {
@@ -24,7 +26,7 @@ export function updateTextDefaults(patch) {
 }
 
 /** Open the text overlay at a given stage position */
-function openOverlay(stageX, stageY, initialText = '', existingId = null) {
+function openOverlay(stageX, stageY, initialText = '', existingId = null, options = {}) {
   const overlay = getOverlay();
   if (!overlay) return;
 
@@ -36,17 +38,19 @@ function openOverlay(stageX, stageY, initialText = '', existingId = null) {
   const screenX = stageX * scale + stagePos.x;
   const screenY = stageY * scale + stagePos.y;
 
-  const fontSize = styleDefaults.fontSize || 20;
+  const fontSize = options.fontSize || styleDefaults.fontSize || 20;
   const scaledFontSize = fontSize * scale;
 
   overlay.style.left = `${screenX}px`;
   overlay.style.top = `${screenY}px`;
   overlay.style.fontSize = `${scaledFontSize}px`;
-  overlay.style.fontFamily = styleDefaults.fontFamily || "'Caveat', cursive";
-  overlay.style.color = styleDefaults.strokeColor || 'var(--sb-text-primary)';
-  overlay.style.minWidth = '100px';
-  overlay.style.width = 'auto';
+  overlay.style.fontFamily = options.fontFamily || styleDefaults.fontFamily || "'Caveat', cursive";
+  overlay.style.color = options.color || styleDefaults.strokeColor || 'var(--sb-text-primary)';
+  fixedOverlayWidth = Number.isFinite(options.width);
+  overlay.style.minWidth = fixedOverlayWidth ? `${Math.max(80, options.width * scale)}px` : '100px';
+  overlay.style.width = fixedOverlayWidth ? `${Math.max(80, options.width * scale)}px` : 'auto';
   overlay.style.height = 'auto';
+  overlay.style.textAlign = options.align || 'left';
   overlay.value = initialText;
   overlay.classList.add('visible');
 
@@ -56,7 +60,7 @@ function openOverlay(stageX, stageY, initialText = '', existingId = null) {
     // Auto-resize to fit initial content
     if (initialText) {
       overlay.style.height = `${overlay.scrollHeight}px`;
-      overlay.style.width = `${Math.max(100, overlay.scrollWidth)}px`;
+      if (!fixedOverlayWidth) overlay.style.width = `${Math.max(100, overlay.scrollWidth)}px`;
     }
   });
 
@@ -64,11 +68,14 @@ function openOverlay(stageX, stageY, initialText = '', existingId = null) {
   overlay.oninput = () => {
     overlay.style.height = 'auto';
     overlay.style.height = `${overlay.scrollHeight}px`;
-    overlay.style.width = 'auto';
-    overlay.style.width = `${Math.max(100, overlay.scrollWidth)}px`;
+    if (!fixedOverlayWidth) {
+      overlay.style.width = 'auto';
+      overlay.style.width = `${Math.max(100, overlay.scrollWidth)}px`;
+    }
   };
 
   editingId = existingId;
+  editingField = options.field || 'text';
 }
 
 /** Commit the current overlay content to scene */
@@ -90,16 +97,19 @@ function commitOverlay() {
   const stageY = (screenY - stagePos.y) / scale;
 
   if (editingId) {
-    if (text === '') {
+    if (editingField === 'text' && text === '') {
       historyPush(snapshot());
       removeElement(editingId);
       if (onCommitCb) onCommitCb(null, editingId);
     } else {
       historyPush(snapshot());
-      updateElement(editingId, { text });
-      if (onCommitCb) onCommitCb({ id: editingId, text });
+      const patch = { [editingField]: text };
+      updateElement(editingId, patch);
+      if (onCommitCb) onCommitCb({ id: editingId, ...patch });
     }
     editingId = null;
+    editingField = 'text';
+    fixedOverlayWidth = false;
     return;
   }
 
@@ -165,6 +175,8 @@ export function activateTextTool(onCommit) {
           o.classList.remove('visible');
         }
         editingId = null;
+        editingField = 'text';
+        fixedOverlayWidth = false;
       }
     };
   }
@@ -210,6 +222,41 @@ export function openTextEditForElement(el, onCommit) {
           o.classList.remove('visible');
         }
         editingId = null;
+        editingField = 'text';
+        fixedOverlayWidth = false;
+      }
+    };
+  }
+}
+
+/** Open the existing overlay to edit a label centred inside a supported shape. */
+export function openShapeLabelEditForElement(el, onCommit) {
+  onCommitCb = onCommit;
+  const overlay = getOverlay();
+  openOverlay(el.x, el.y, el.label || '', el.id, {
+    field: 'label',
+    width: el.width,
+    fontSize: el.fontSize || 20,
+    fontFamily: el.fontFamily,
+    color: el.strokeColor,
+    align: 'center',
+  });
+
+  if (overlay) {
+    overlay.onblur = () => {
+      setTimeout(() => {
+        const current = getOverlay();
+        if (current && current.classList.contains('visible')) commitOverlay();
+      }, 100);
+    };
+    overlay.onkeydown = (event) => {
+      event.stopPropagation();
+      if (event.key === 'Escape') {
+        overlay.value = '';
+        overlay.classList.remove('visible');
+        editingId = null;
+        editingField = 'text';
+        fixedOverlayWidth = false;
       }
     };
   }

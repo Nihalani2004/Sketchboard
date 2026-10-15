@@ -38,6 +38,13 @@
 ### 🔷 Shape Tools
 Rectangle, Ellipse, Diamond (flowchart decision), Arrow, Line — click-drag to draw. Hold **Shift** to constrain to square/circle/15° increments.
 
+### 🧩 Extended Shapes & Labels
+- The separate **More shapes** menu adds triangle, rounded rectangle, cloud, callout, sticky note, and flowchart process, terminator, decision, input/output, document, and database symbols without changing the main toolbar layout.
+- **Double-click** any closed shape to add or edit its centred label. Connectors (arrows and lines) remain label-free.
+
+### 🖼️ Image Support
+Drag a PNG, JPEG, WebP, or GIF onto the canvas, or paste an image from the clipboard. Images are embedded in exported JSON files; unsupported formats, images over 5 MB, and images larger than 4096 × 4096 are rejected before insertion.
+
 ### ✍️ Freehand Pen & 🧹 Eraser
 - **Pen**: Natural, pressure-variable strokes powered by `perfect-freehand` with interior background color filling.
 - **Eraser**: Drag across canvas elements to erase them instantly.

@@ -53,6 +53,14 @@ describe('scene data', () => {
     expect(getElements()[0].points).toEqual([[8, 9, 0.4]]);
   });
 
+  it('preserves labels on supported shape elements', () => {
+    const element = createElement('rectangle', { label: 'Start here', width: 160, height: 80 });
+    addElement(element);
+    updateElement(element.id, { label: 'Updated label' });
+
+    expect(getElements()[0]).toMatchObject({ type: 'rectangle', label: 'Updated label' });
+  });
+
   it('maintains selected element order when moving layers', () => {
     const first = createElement('rectangle');
     const second = createElement('ellipse');

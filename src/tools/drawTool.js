@@ -3,16 +3,17 @@
  * Creates a live preview on the transformer layer; commits to scene on pointerup.
  */
 
-import { createElement, addElement, snapshot } from '../scene.js';
-import { getStage, getSceneLayer, getTransformerLayer, screenToStage } from '../stage.js';
+import { createElement, addElement, getElements, snapshot } from '../scene.js';
+import { getStage, getSceneLayer, getTransformerLayer, getScale, screenToStage } from '../stage.js';
 import { snapPoint } from '../snapping.js';
+import { snapConnectorEndpoint } from '../shapes/connectorSnap.js';
 import {
   createSketchyRect, createSketchyEllipse, createSketchyLine, createSketchyArrow, createSketchyDiamond,
   createSketchyTriangle, createSketchyRoundedRect, createSketchyCloud, createSketchyCallout, createSketchyStickyNote,
   createFlowchartProcess, createFlowchartTerminator, createFlowchartDecision, createFlowchartInputOutput,
   createFlowchartDocument, createFlowchartDatabase,
 } from '../shapes/sketchyShape.js';
-import { getShapeDefaults } from '../shapes/catalog.js';
+import { getShapeDefaults, isDrawShape } from '../shapes/catalog.js';
 import { push as historyPush } from '../history.js';
 
 let isDrawing = false;
@@ -20,6 +21,19 @@ let startPos = null;
 let previewShape = null;
 let activeType = null;
 let styleDefaults = {};
+
+const CONNECTOR_SNAP_DISTANCE = 14;
+
+function snapActiveConnectorEndpoint(point) {
+  if (activeType !== 'arrow' && activeType !== 'line') return point;
+  return snapConnectorEndpoint(point, getElements(), CONNECTOR_SNAP_DISTANCE / Math.max(getScale(), 0.05));
+}
+
+function canStartConnectorOnTarget(target) {
+  if ((activeType !== 'arrow' && activeType !== 'line') || !target?.hasName?.('element')) return false;
+  const type = target.attrs.elementType;
+  return isDrawShape(type) && type !== 'line' && type !== 'arrow';
+}
 
 function resolvedStyleDefaults() {
   const defaults = { ...styleDefaults };
@@ -45,10 +59,10 @@ export function activateDrawTool(onCommit) {
 
   function onPointerDown(e) {
     if (e.evt.button !== 0) return;
-    if (e.target !== stage && e.target !== getSceneLayer()) return;
+    if (e.target !== stage && e.target !== getSceneLayer() && !canStartConnectorOnTarget(e.target)) return;
 
     isDrawing = true;
-    startPos = snapPoint(screenToStage(e.evt.clientX, e.evt.clientY));
+    startPos = snapActiveConnectorEndpoint(snapPoint(screenToStage(e.evt.clientX, e.evt.clientY)));
 
     // Create a tiny preview shape
     _createPreview(startPos.x, startPos.y, 1, 1);
@@ -57,7 +71,7 @@ export function activateDrawTool(onCommit) {
   function onPointerMove(e) {
     if (!isDrawing || !previewShape) return;
 
-    const pos = snapPoint(screenToStage(e.evt.clientX, e.evt.clientY));
+    let pos = snapPoint(screenToStage(e.evt.clientX, e.evt.clientY));
     let w = pos.x - startPos.x;
     let h = pos.y - startPos.y;
 
@@ -77,6 +91,10 @@ export function activateDrawTool(onCommit) {
         h = Math.sign(h) * side;
       }
     }
+
+    pos = snapActiveConnectorEndpoint({ x: startPos.x + w, y: startPos.y + h });
+    w = pos.x - startPos.x;
+    h = pos.y - startPos.y;
 
     // Keep the preview's bounds positive so Konva can calculate its hit area
     // consistently. Arrows retain their original drag direction separately.
@@ -99,7 +117,7 @@ export function activateDrawTool(onCommit) {
     if (!isDrawing) return;
     isDrawing = false;
 
-    const pos = screenToStage(e.evt.clientX, e.evt.clientY);
+    let pos = snapPoint(screenToStage(e.evt.clientX, e.evt.clientY));
     let w = pos.x - startPos.x;
     let h = pos.y - startPos.y;
 
@@ -116,6 +134,10 @@ export function activateDrawTool(onCommit) {
         h = Math.sign(h) * side;
       }
     }
+
+    pos = snapActiveConnectorEndpoint({ x: startPos.x + w, y: startPos.y + h });
+    w = pos.x - startPos.x;
+    h = pos.y - startPos.y;
 
     // Remove preview
     if (previewShape) {
